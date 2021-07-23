@@ -20,4 +20,17 @@ cargo install imdb-id
 
 ## Usage
 
-To be decided...
+```
+imdb-id [TITLE]
+```
+
+...yes there are no options or anything. This is version 0.1.0, please hold 😛
+
+## Roadmap
+
+1. Proof of concept - done as of v0.1.0!
+2. CLI option parsing and non-interactive 'feeling lucky' mode with appropriate output
+3. Interactive mode (v1.0.0 release)
+4. Use async/tokio properly
+5. ???
+6. Profit
