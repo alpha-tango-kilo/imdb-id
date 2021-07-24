@@ -16,7 +16,7 @@ impl RuntimeConfig {
             .arg(Arg::new("non-interactive")
                 .short('n')
                 .long("non-interactive")
-                .about("Disables interactive features (effectively makes search \"I'm feeling lucky\")"))
+                .about("Disables interactive features (effectively makes search \"I'm feeling lucky\"). Implies -r 1"))
             .arg(Arg::new("number_of_results")
                 .short('r')
                 .long("results")

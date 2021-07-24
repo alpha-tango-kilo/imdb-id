@@ -21,15 +21,26 @@ cargo install imdb-id
 ## Usage
 
 ```
-imdb-id [TITLE]
-```
+USAGE:
+    imdb-id [FLAGS] [OPTIONS] <search_term>
 
-...yes there are no options or anything. This is version 0.1.0, please hold 😛
+ARGS:
+    <search_term>    The title of the movie/show you're looking for
+
+FLAGS:
+    -h, --help               Prints help information
+    -n, --non-interactive    Disables interactive features (effectively makes search "I'm feeling
+                             lucky"). Implies -r 1
+    -V, --version            Prints version information
+
+OPTIONS:
+    -r, --results <number_of_results>    The maximum number of results to show from IMDb
+```
 
 ## Roadmap
 
 1. Proof of concept - done as of v0.1.0!
-2. CLI option parsing and non-interactive 'feeling lucky' mode with appropriate output
+2. CLI option parsing and non-interactive 'feeling lucky' mode with appropriate output - done as of v0.2.0!
 3. Interactive mode (v1.0.0 release)
 4. Use async/tokio properly
 5. ???
