@@ -16,8 +16,6 @@ You need to have [Rust](https://www.rust-lang.org/) installed on your system, th
 cargo install imdb-id
 ```
 
-(please note this isn't yet live on crates.io, but shall be when it's released)
-
 ## Usage
 
 ```
