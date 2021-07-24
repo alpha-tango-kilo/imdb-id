@@ -1,10 +1,19 @@
-use imdb_id::RuntimeConfig;
-use imdb_id::{SearchResult, RESULT_SELECTOR, URL_START};
+use imdb_id::*;
 use reqwest::blocking as reqwest;
 use scraper::Html;
 use std::convert::TryFrom;
+use std::process;
 
-fn main() -> anyhow::Result<()> {
+type Result<T> = std::result::Result<T, RunError>;
+
+fn main() {
+    if let Err(why) = app() {
+        eprintln!("Error: {}", why);
+        process::exit(1);
+    }
+}
+
+fn app() -> Result<()> {
     let config = RuntimeConfig::new();
 
     let html = reqwest::get(format!("{}{}", URL_START, &config.search_term))?.text()?;

@@ -1,13 +1,13 @@
 mod clap_wrap;
+mod error;
 
 pub use clap_wrap::*;
+pub use error::*;
 
-use anyhow::anyhow;
 use lazy_regex::*;
 use scraper::Selector;
 use std::convert::TryFrom;
 use std::fmt;
-use std::fmt::Display;
 
 /*
 The DIRT_MARGIN_* constants refer to the amount of unwanted characters captured by the regex
@@ -36,10 +36,10 @@ pub struct SearchResult {
 }
 
 impl SearchResult {
-    fn find_name_in_fragment(fragment: &str) -> anyhow::Result<&str> {
+    fn find_name_in_fragment(fragment: &str) -> Result<&str, RunError> {
         let m = NAME_REGEX
             .find(fragment)
-            .ok_or(anyhow!("Couldn't find a name in {:?}", fragment))?;
+            .ok_or(RunError::NameNotFound(fragment.into()))?;
         let dirty_name = m.as_str();
         let clean_name = &dirty_name[DIRT_MARGIN_NAME.0..dirty_name.len() - DIRT_MARGIN_NAME.1];
         Ok(clean_name)
@@ -47,12 +47,12 @@ impl SearchResult {
 }
 
 impl TryFrom<&str> for SearchResult {
-    type Error = anyhow::Error;
+    type Error = RunError;
 
     fn try_from(fragment: &str) -> Result<Self, Self::Error> {
         let id = ID_REGEX
             .find(fragment)
-            .ok_or(anyhow!("Regex couldn't find an IMDb ID in {:?}", fragment))?
+            .ok_or(RunError::ImdbIdNotFound(fragment.into()))?
             .as_str()
             .into();
         let name = SearchResult::find_name_in_fragment(fragment)?.to_string();
@@ -71,7 +71,7 @@ impl TryFrom<&str> for SearchResult {
     }
 }
 
-impl Display for SearchResult {
+impl fmt::Display for SearchResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} ({})", self.name, self.genre)
     }
@@ -102,7 +102,7 @@ impl From<&str> for Genre {
     }
 }
 
-impl Display for Genre {
+impl fmt::Display for Genre {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Genre::*;
         write!(

@@ -1,3 +1,4 @@
+use crate::RunError;
 use atty::Stream;
 use clap::{App, Arg};
 
@@ -22,8 +23,7 @@ impl RuntimeConfig {
                 .long("results")
                 .about("The maximum number of results to show from IMDb")
                 .takes_value(true)
-                // TODO: consider wrapping in RunError
-                .validator(|s| s.parse::<usize>()))
+                .validator(|s| s.parse::<usize>().map_err(|_| RunError::ClapNotUsize)))
             .arg(Arg::new("search_term")
                 .about("The title of the movie/show you're looking for")
                 .required(true))
