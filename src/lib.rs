@@ -1,5 +1,10 @@
+mod clap_wrap;
+
+pub use clap_wrap::*;
+
 use anyhow::anyhow;
 use lazy_regex::*;
+use scraper::Selector;
 use std::convert::TryFrom;
 use std::fmt;
 use std::fmt::Display;
@@ -10,6 +15,9 @@ For example, to capture the movie name we have to also find the > character to k
 This gives movie names a 'dirt margin' of (1, 4): 1 character at the start, 4 characters at the end
  */
 
+pub const URL_START: &str = "https://www.imdb.com/find?s=tt&q=";
+pub static RESULT_SELECTOR: Lazy<Selector> =
+    Lazy::new(|| Selector::parse("td.result_text").unwrap());
 static ID_REGEX: Lazy<Regex> = lazy_regex!("tt[0-9]+");
 // +? means 1 or more, not greedily
 static NAME_REGEX: Lazy<Regex> = lazy_regex!(">.+?</a>");
@@ -55,7 +63,7 @@ impl TryFrom<&str> for SearchResult {
             Some(m) => {
                 let s = m.as_str();
                 &s[DIRT_MARGIN_GENRE.0..s.len() - DIRT_MARGIN_GENRE.1]
-            },
+            }
             None => "",
         };
         let genre = Genre::from(genre_option);

@@ -1,30 +1,38 @@
+use imdb_id::RuntimeConfig;
+use imdb_id::{SearchResult, RESULT_SELECTOR, URL_START};
 use reqwest::blocking as reqwest;
-use scraper::{Html, Selector};
-use std::env;
-use imdb_id::SearchResult;
+use scraper::Html;
 use std::convert::TryFrom;
 
-const URL_START: &str = "https://www.imdb.com/find?s=tt&q=";
-
 fn main() -> anyhow::Result<()> {
-    let search_term = env::args().skip(1).collect::<String>();
-    eprintln!("Args: {:?}", search_term);
+    let config = RuntimeConfig::new();
 
-    let html = reqwest::get(format!("{}{}", URL_START, search_term))?.text()?;
+    let html = reqwest::get(format!("{}{}", URL_START, &config.search_term))?.text()?;
     let document = Html::parse_document(&html);
-    let selector = Selector::parse("td.result_text").unwrap();
-    let link_selector = document.select(&selector);
+    let search_result_iter = document.select(&RESULT_SELECTOR);
 
-    let links = link_selector
-        .take(10)
+    let links = search_result_iter
+        .take(config.number_of_results)
         .map(|er| er.inner_html())
         .map(|html| SearchResult::try_from(html.as_str()))
         .filter_map(|res| match res {
             Ok(sr) => Some(sr),
-            Err(why) => { eprintln!("{}", why); None }
+            Err(why) => {
+                eprintln!("{}", why);
+                None
+            }
         })
         .collect::<Vec<_>>();
-    println!("{:#?}", links);
+
+    if links.len() == 1 {
+        if config.interactive {
+            eprintln!("Only one result; {}", links.get(0).unwrap());
+        }
+        println!("{}", links.get(0).unwrap().id);
+    } else {
+        // Guaranteed to be interactive
+        println!("{:#?}", links);
+    }
 
     Ok(())
 }
