@@ -20,15 +20,14 @@ cargo install imdb-id
 
 ```
 USAGE:
-    imdb-id [FLAGS] [OPTIONS] <search_term>
+    imdb-id [FLAGS] [OPTIONS] [search_term]...
 
 ARGS:
-    <search_term>    The title of the movie/show you're looking for
+    <search_term>...    The title of the movie/show you're looking for
 
 FLAGS:
     -h, --help               Prints help information
-    -n, --non-interactive    Disables interactive features (effectively makes search "I'm feeling
-                             lucky"). Implies -r 1
+    -n, --non-interactive    Disables interactive features (always picks the first result)
     -V, --version            Prints version information
 
 OPTIONS:
