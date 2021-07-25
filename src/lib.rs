@@ -37,7 +37,7 @@ const DIRT_MARGIN_GENRE: (usize, usize) = (1, 1);
 pub struct SearchResult {
     pub name: String,
     pub id: String,
-    pub genre: Genre,
+    pub genre: String,
 }
 
 impl SearchResult {
@@ -66,14 +66,13 @@ impl TryFrom<&str> for SearchResult {
             println!("DEBUG: Strangely long fragment: {:?}", fragment);
         }
 
-        let genre_option = match GENRE_REGEX.find(fragment) {
+        let genre = match GENRE_REGEX.find(fragment) {
             Some(m) => {
                 let s = m.as_str();
-                &s[DIRT_MARGIN_GENRE.0..s.len() - DIRT_MARGIN_GENRE.1]
+                String::from(&s[DIRT_MARGIN_GENRE.0..s.len() - DIRT_MARGIN_GENRE.1])
             }
-            None => "",
+            None => String::from("Movie"),
         };
-        let genre = Genre::from(genre_option);
         Ok(SearchResult { name, id, genre })
     }
 }
@@ -109,52 +108,8 @@ pub fn choose_from_results(results: &Vec<SearchResult>) -> Result<&SearchResult>
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Clone)]
-pub enum Genre {
-    Movie,
-    TvSeries,
-    TvEpisode,
-    Short,
-    Video,
-    Other(String),
-    // TODO: consider supporting more
-}
-
-impl From<&str> for Genre {
-    fn from(s: &str) -> Self {
-        use Genre::*;
-        match s {
-            "Movie" | "" => Movie,
-            "TV Series" => TvSeries,
-            "TV Episode" => TvEpisode,
-            "Short" => Short,
-            "Video" => Video,
-            _ => Other(s.into()),
-        }
-    }
-}
-
-impl fmt::Display for Genre {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use Genre::*;
-        write!(
-            f,
-            "{}",
-            match self {
-                Movie => "Movie",
-                TvSeries => "TV series",
-                TvEpisode => "TV episode",
-                Short => "Short",
-                Video => "Video",
-                Other(s) => s,
-            }
-        )
-    }
-}
-
 #[cfg(test)]
 mod unit_tests {
-    use super::Genre::*;
     use super::*;
 
     // Data taken from search term "kingsmen"
@@ -181,18 +136,6 @@ mod unit_tests {
             })
             .collect()
     });
-
-    #[test]
-    fn genre_from_str() {
-        assert_eq!(Genre::from(""), Movie);
-        assert_eq!(Genre::from("Movie"), Movie);
-        assert_eq!(Genre::from("TV Series"), TvSeries);
-        assert_eq!(Genre::from("TV Episode"), TvEpisode);
-        assert_eq!(Genre::from("Short"), Short);
-        assert_eq!(Genre::from("Video"), Video);
-        assert_eq!(Genre::from("foo"), Other("foo".into()));
-        assert_eq!(Genre::from("bar"), Other("bar".into()));
-    }
 
     #[test]
     fn name_searching() {
@@ -238,23 +181,23 @@ mod unit_tests {
     #[test]
     fn genre_searching() {
         let genres = [
-            Movie,
-            Movie,
-            Short,
-            Movie,
-            Movie,
-            Movie,
-            TvSeries,
-            TvEpisode,
-            Other("TV Movie".into()),
-            Movie,
+            "Movie",
+            "Movie",
+            "Short",
+            "Movie",
+            "Movie",
+            "Movie",
+            "TV Series",
+            "TV Episode",
+            "TV Movie",
+            "Movie",
         ];
 
         genres
             .iter()
             .zip(SEARCH_RESULTS.iter())
             .for_each(|(genre, sr)| {
-                assert_eq!(sr.genre, *genre);
+                assert_eq!(&sr.genre, *genre);
             });
     }
 
