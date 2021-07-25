@@ -27,8 +27,6 @@ static ID_REGEX: Lazy<Regex> = lazy_regex!("tt[0-9]+");
 static NAME_REGEX: Lazy<Regex> = lazy_regex!(">.+?</a>");
 const DIRT_MARGIN_NAME: (usize, usize) = (1, 4);
 // Matches something like "(TV Series)"
-// TODO: make GENRE_REGEX more non-English friendly
-// Would use \w escape but it matches numbers as well as letters
 static GENRE_REGEX: Lazy<Regex> = lazy_regex!("\\([A-z]+(\\s[A-z]+)?\\)");
 const DIRT_MARGIN_GENRE: (usize, usize) = (1, 1);
 
