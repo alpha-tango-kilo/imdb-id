@@ -7,7 +7,7 @@ use std::process;
 fn main() {
     if let Err(why) = app() {
         eprintln!("Error: {}", why);
-        process::exit(1);
+        process::exit(why.error_code());
     }
 }
 
@@ -31,7 +31,9 @@ fn app() -> Result<()> {
         })
         .collect::<Vec<_>>();
 
-    if links.len() == 1 {
+    if links.len() == 0 {
+        return Err(RunError::NoSearchResults);
+    } else if links.len() == 1 {
         if config.interactive {
             eprintln!("Only one result; {}", links.get(0).unwrap());
         }
