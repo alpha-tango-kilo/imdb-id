@@ -38,7 +38,8 @@ fn app() -> Result<()> {
         println!("{}", links.get(0).unwrap().id);
     } else {
         // Guaranteed to be interactive
-        println!("{:#?}", links);
+        let selected = choose_from_results(&links)?;
+        println!("{}", selected.id);
     }
 
     Ok(())

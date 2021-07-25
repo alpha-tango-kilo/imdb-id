@@ -8,6 +8,8 @@ use lazy_regex::*;
 use scraper::Selector;
 use std::convert::TryFrom;
 use std::fmt;
+use requestty::Question;
+use requestty::question::Choice;
 
 /*
 The DIRT_MARGIN_* constants refer to the amount of unwanted characters captured by the regex.
@@ -79,6 +81,31 @@ impl TryFrom<&str> for SearchResult {
 impl fmt::Display for SearchResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} ({})", self.name, self.genre)
+    }
+}
+
+pub fn choose_from_results(results: &Vec<SearchResult>) -> Result<&SearchResult> {
+    let choices = {
+        let mut choices = results.iter()
+            .map(|sr| sr.to_string().into())
+            .collect::<Vec<Choice<String>>>();
+        choices.push(requestty::DefaultSeparator);
+        choices.push(Choice::Choice("I can't see what I'm looking for".into()));
+        choices
+    };
+
+    let question = Question::select("result")
+        .message("Pick the correct search result")
+        .choices(choices)
+        .build();
+
+    let answer = requestty::prompt_one(question)?;
+    let item = answer.as_list_item().unwrap();
+    if item.index < results.len() {
+        Ok(results.get(item.index).unwrap())
+    } else {
+        // User selected "I can't see what I'm looking for"
+        Err(RunError::NoDesiredSearchResults)
     }
 }
 

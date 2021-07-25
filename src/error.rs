@@ -19,6 +19,7 @@ pub enum RunError {
     Reqwest(reqwest::Error),
     InputUserHalted,
     InputIo(io::Error),
+    NoDesiredSearchResults,
 }
 
 impl fmt::Display for RunError {
@@ -30,6 +31,7 @@ impl fmt::Display for RunError {
             Reqwest(reqwest_err) => write!(f, "Issue with web request: {}", reqwest_err),
             InputUserHalted => write!(f, "Program halted at user request"),
             InputIo(io_err) => write!(f, "IO error: {}", io_err),
+            NoDesiredSearchResults => write!(f, "You couldn't find what you wanted :("),
         }
     }
 }
