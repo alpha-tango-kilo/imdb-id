@@ -1,4 +1,7 @@
-# IMDb Code
+# IMDb ID
+
+[![Crates.io](https://img.shields.io/crates/v/imdb-id.svg)](https://crates.io/crates/imdb-id)
+[![GPL v3](https://img.shields.io/badge/license-GPL-blue)](./LICENCE)
 
 An easy-to-use commandline tool to easily look up the IMDb ID of a movie given its name
 
@@ -38,7 +41,11 @@ OPTIONS:
 
 1. Proof of concept - done as of v0.1.0!
 2. CLI option parsing and non-interactive 'feeling lucky' mode with appropriate output - done as of v0.2.0!
-3. Interactive mode (v1.0.0 release)
-4. Use async/tokio properly
-5. ???
-6. Profit
+3. Interactive mode - done as v1.0.0!
+4. Showing more results if you can't see what you're after
+5. Filtering by genre
+6. Filtering by year
+7. Customising fields shown in search results
+8. Use async/tokio properly
+9. ???
+10. Profit
