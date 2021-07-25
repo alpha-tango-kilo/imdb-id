@@ -1,7 +1,8 @@
-use crate::RunError;
+use crate::{Result, RunError};
 #[cfg(not(test))]
 use atty::Stream;
-use clap::{App, Arg, ArgMatches};
+use clap::{App, AppSettings, Arg, ArgMatches};
+use requestty::Question;
 
 pub struct RuntimeConfig {
     pub search_term: String,
@@ -10,7 +11,7 @@ pub struct RuntimeConfig {
 }
 
 impl RuntimeConfig {
-    pub fn new() -> Self {
+    pub fn new() -> Result<Self> {
         RuntimeConfig::process_matches(&RuntimeConfig::create_clap_app().get_matches())
     }
 
@@ -20,11 +21,13 @@ impl RuntimeConfig {
             .version(env!("CARGO_PKG_VERSION"))
             .author("alpha-tango-kilo <git@heyatk.com>")
             .about(env!("CARGO_PKG_DESCRIPTION"))
+            .setting(AppSettings::TrailingVarArg)
             .arg(
                 Arg::new("non-interactive")
                     .short('n')
                     .long("non-interactive")
-                    .about("Disables interactive features (always picks the first result)"),
+                    .about("Disables interactive features (always picks the first result)")
+                    .requires("search_term"),
             )
             .arg(
                 Arg::new("number_of_results")
@@ -38,13 +41,25 @@ impl RuntimeConfig {
             .arg(
                 Arg::new("search_term")
                     .about("The title of the movie/show you're looking for")
-                    .required(true),
+                    .takes_value(true)
+                    .multiple(true),
             )
     }
 
     #[inline]
-    fn process_matches(clap_matches: &ArgMatches) -> Self {
-        let search_term = clap_matches.value_of("search_term").unwrap().to_string();
+    fn process_matches(clap_matches: &ArgMatches) -> Result<Self> {
+        let search_term = match clap_matches.values_of("search_term") {
+            Some(vs) => {
+                // TODO: there has to be a better way than this
+                let mut search_term = String::new();
+                vs.into_iter().for_each(|v| {
+                    search_term.push_str(v);
+                    search_term.push(' ');
+                });
+                search_term.trim().into()
+            }
+            None => RuntimeConfig::prompt_for_search_term()?,
+        };
 
         // Note: atty checks are disabled for testing
         #[cfg(not(test))]
@@ -63,11 +78,23 @@ impl RuntimeConfig {
             1
         };
 
-        RuntimeConfig {
+        Ok(RuntimeConfig {
             search_term,
             interactive,
             number_of_results,
-        }
+        })
+    }
+
+    #[inline]
+    fn prompt_for_search_term() -> Result<String> {
+        let question = Question::input("search_term")
+            .message("Please enter the name of the movie/show you're looking for")
+            .build();
+        Ok(requestty::prompt_one(question)?
+            .as_string()
+            .unwrap()
+            .trim()
+            .into())
     }
 }
 
@@ -123,7 +150,7 @@ mod unit_tests {
             .unwrap();
         assert_eq!(m.value_of("number_of_results"), Some("3"));
 
-        let config = RuntimeConfig::process_matches(&m);
+        let config = RuntimeConfig::process_matches(&m).unwrap();
         assert_eq!(config.number_of_results, 3);
     }
 
@@ -135,7 +162,7 @@ mod unit_tests {
             .unwrap();
         assert_eq!(m.value_of("number_of_results"), Some("7"));
 
-        let config = RuntimeConfig::process_matches(&m);
+        let config = RuntimeConfig::process_matches(&m).unwrap();
         assert_eq!(config.number_of_results, 7);
     }
 
@@ -156,7 +183,7 @@ mod unit_tests {
             .unwrap();
         assert!(m.is_present("non-interactive"));
 
-        let config = RuntimeConfig::process_matches(&m);
+        let config = RuntimeConfig::process_matches(&m).unwrap();
         assert!(!config.interactive);
         assert_eq!(config.number_of_results, 1);
     }
@@ -169,7 +196,7 @@ mod unit_tests {
             .unwrap();
         assert!(m.is_present("non-interactive"));
 
-        let config = RuntimeConfig::process_matches(&m);
+        let config = RuntimeConfig::process_matches(&m).unwrap();
         assert!(!config.interactive);
         assert_eq!(config.number_of_results, 1);
     }
@@ -190,11 +217,31 @@ mod unit_tests {
     }
 
     #[test]
-    fn no_search_term() {
+    fn require_search_term_if_n() {
         let clap = RuntimeConfig::create_clap_app();
         let err = clap
-            .try_get_matches_from(vec![env!("CARGO_PKG_NAME")])
+            .try_get_matches_from(vec![
+                env!("CARGO_PKG_NAME"),
+                "--non-interactive",
+            ])
             .unwrap_err();
-        assert_eq!(err.kind, clap::ErrorKind::MissingRequiredArgument);
+        assert_eq!(err.kind, clap::ErrorKind::MissingRequiredArgument)
+    }
+
+    #[test]
+    fn multiple_word_search_term() {
+        let clap = RuntimeConfig::create_clap_app();
+        let matches = clap
+            .try_get_matches_from(vec![
+                env!("CARGO_PKG_NAME"),
+                "foo",
+                "bar",
+            ])
+            .unwrap();
+        let values = matches.values_of("search_term").unwrap();
+        assert_eq!(values.len(), 2);
+
+        let config = RuntimeConfig::process_matches(&matches).unwrap();
+        assert_eq!(&config.search_term, "foo bar");
     }
 }

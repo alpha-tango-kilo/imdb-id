@@ -14,6 +14,7 @@ repository = "https://codeberg.org/alpha-tango-kilo/imdb-id"
 atty = "0.2"
 lazy-regex = "2.2"
 scraper = "0.12"
+requestty = "0.1"
 
 [dependencies.clap]
 version = "3.0.0-beta.2"

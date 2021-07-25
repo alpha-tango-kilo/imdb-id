@@ -39,7 +39,7 @@ pub struct SearchResult {
 }
 
 impl SearchResult {
-    fn find_name_in_fragment(fragment: &str) -> Result<&str, RunError> {
+    fn find_name_in_fragment(fragment: &str) -> Result<&str> {
         let m = NAME_REGEX
             .find(fragment)
             .ok_or(RunError::NameNotFound(fragment.into()))?;
@@ -52,16 +52,18 @@ impl SearchResult {
 impl TryFrom<&str> for SearchResult {
     type Error = RunError;
 
-    fn try_from(fragment: &str) -> Result<Self, Self::Error> {
+    fn try_from(fragment: &str) -> Result<Self> {
         let id = ID_REGEX
             .find(fragment)
             .ok_or(RunError::ImdbIdNotFound(fragment.into()))?
             .as_str()
             .into();
         let name = SearchResult::find_name_in_fragment(fragment)?.to_string();
-        if name.len() > 40 {
-            println!("{}", fragment);
+
+        if cfg!(debug_assertions) && name.len() > 40 {
+            println!("DEBUG: Strangely long fragment: {:?}", fragment);
         }
+
         let genre_option = match GENRE_REGEX.find(fragment) {
             Some(m) => {
                 let s = m.as_str();
@@ -238,7 +240,7 @@ mod unit_tests {
         ];
         for fragment in fragments.iter() {
             match SearchResult::try_from(*fragment).unwrap_err() {
-                RunError::NameNotFound(_) => {},
+                RunError::NameNotFound(_) => {}
                 e => panic!("Incorrect error type raised: {:?}", e),
             }
         }
@@ -253,7 +255,7 @@ mod unit_tests {
         ];
         for fragment in fragments.iter() {
             match SearchResult::try_from(*fragment).unwrap_err() {
-                RunError::ImdbIdNotFound(_) => {},
+                RunError::ImdbIdNotFound(_) => {}
                 e => panic!("Incorrect error type raised: {:?}", e),
             }
         }

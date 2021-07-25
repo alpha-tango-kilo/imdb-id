@@ -4,8 +4,6 @@ use scraper::Html;
 use std::convert::TryFrom;
 use std::process;
 
-type Result<T> = std::result::Result<T, RunError>;
-
 fn main() {
     if let Err(why) = app() {
         eprintln!("Error: {}", why);
@@ -14,7 +12,7 @@ fn main() {
 }
 
 fn app() -> Result<()> {
-    let config = RuntimeConfig::new();
+    let config = RuntimeConfig::new()?;
 
     let html = reqwest::get(format!("{}{}", URL_START, &config.search_term))?.text()?;
     let document = Html::parse_document(&html);
