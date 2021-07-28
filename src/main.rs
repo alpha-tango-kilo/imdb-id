@@ -1,7 +1,4 @@
 use imdb_id::*;
-use reqwest::blocking as reqwest;
-use scraper::Html;
-use std::convert::TryFrom;
 use std::process;
 
 fn main() {
@@ -14,33 +11,20 @@ fn main() {
 fn app() -> Result<()> {
     let config = RuntimeConfig::new()?;
 
-    let html = reqwest::get(format!("{}{}", URL_START, &config.search_term))?.text()?;
-    let document = Html::parse_document(&html);
-    let search_result_iter = document.select(&RESULT_SELECTOR);
+    let fragments = request_and_scrape(&config.search_term)?;
+    let search_results = SearchResult::try_many_lossy(fragments);
 
-    let links = search_result_iter
-        .take(config.number_of_results)
-        .map(|er| er.inner_html())
-        .map(|html| SearchResult::try_from(html.as_str()))
-        .filter_map(|res| match res {
-            Ok(sr) => Some(sr),
-            Err(why) => {
-                eprintln!("{}", why);
-                None
-            }
-        })
-        .collect::<Vec<_>>();
-
-    if links.len() == 0 {
+    if search_results.len() == 0 {
         return Err(RunError::NoSearchResults);
-    } else if links.len() == 1 {
+    } else if search_results.len() == 1 {
+        let search_result = search_results.get(0).unwrap();
         if config.interactive {
-            eprintln!("Only one result; {}", links.get(0).unwrap());
+            eprintln!("Only one result; {}", search_result);
         }
-        println!("{}", links.get(0).unwrap().id);
+        println!("{}", search_result.id);
     } else {
         // Guaranteed to be interactive
-        let selected = choose_from_results(&links)?;
+        let selected = choose_from_results(&search_results)?;
         println!("{}", selected.id);
     }
 

@@ -1,8 +1,7 @@
-use crate::{Result, RunError};
+use crate::{user_input, Result, RunError};
 #[cfg(not(test))]
 use atty::Stream;
 use clap::{App, AppSettings, Arg, ArgMatches};
-use requestty::Question;
 
 pub struct RuntimeConfig {
     pub search_term: String,
@@ -15,7 +14,6 @@ impl RuntimeConfig {
         RuntimeConfig::process_matches(&RuntimeConfig::create_clap_app().get_matches())
     }
 
-    #[inline]
     fn create_clap_app() -> clap::App<'static> {
         App::new(env!("CARGO_PKG_NAME"))
             .version(env!("CARGO_PKG_VERSION"))
@@ -46,7 +44,6 @@ impl RuntimeConfig {
             )
     }
 
-    #[inline]
     fn process_matches(clap_matches: &ArgMatches) -> Result<Self> {
         let search_term = match clap_matches.values_of("search_term") {
             Some(vs) => {
@@ -58,7 +55,7 @@ impl RuntimeConfig {
                 });
                 search_term.trim().into()
             }
-            None => RuntimeConfig::prompt_for_search_term()?,
+            None => user_input::get_search_term()?,
         };
 
         // Note: atty checks are disabled for testing
@@ -83,18 +80,6 @@ impl RuntimeConfig {
             interactive,
             number_of_results,
         })
-    }
-
-    #[inline]
-    fn prompt_for_search_term() -> Result<String> {
-        let question = Question::input("search_term")
-            .message("Please enter the name of the movie/show you're looking for")
-            .build();
-        Ok(requestty::prompt_one(question)?
-            .as_string()
-            .unwrap()
-            .trim()
-            .into())
     }
 }
 
@@ -220,10 +205,7 @@ mod unit_tests {
     fn require_search_term_if_n() {
         let clap = RuntimeConfig::create_clap_app();
         let err = clap
-            .try_get_matches_from(vec![
-                env!("CARGO_PKG_NAME"),
-                "--non-interactive",
-            ])
+            .try_get_matches_from(vec![env!("CARGO_PKG_NAME"), "--non-interactive"])
             .unwrap_err();
         assert_eq!(err.kind, clap::ErrorKind::MissingRequiredArgument)
     }
@@ -232,11 +214,7 @@ mod unit_tests {
     fn multiple_word_search_term() {
         let clap = RuntimeConfig::create_clap_app();
         let matches = clap
-            .try_get_matches_from(vec![
-                env!("CARGO_PKG_NAME"),
-                "foo",
-                "bar",
-            ])
+            .try_get_matches_from(vec![env!("CARGO_PKG_NAME"), "foo", "bar"])
             .unwrap();
         let values = matches.values_of("search_term").unwrap();
         assert_eq!(values.len(), 2);

@@ -1,15 +1,18 @@
 mod clap_wrap;
 mod error;
+mod user_input;
 
 pub use clap_wrap::*;
 pub use error::*;
+pub use user_input::choose_from_results;
 
 use lazy_regex::*;
-use scraper::Selector;
+use reqwest::blocking as reqwest;
+use scraper::{Html, Selector};
 use std::convert::TryFrom;
 use std::fmt;
-use requestty::Question;
-use requestty::question::Choice;
+
+pub type HtmlFragments = Vec<String>;
 
 /*
 The DIRT_MARGIN_* constants refer to the amount of unwanted characters captured by the regex.
@@ -29,6 +32,8 @@ const DIRT_MARGIN_NAME: (usize, usize) = (1, 4);
 // Matches something like "(TV Series)"
 static GENRE_REGEX: Lazy<Regex> = lazy_regex!("\\([A-z]+(\\s[A-z]+)?\\)");
 const DIRT_MARGIN_GENRE: (usize, usize) = (1, 1);
+// Upper limit on things we'll bother to parse... just in case
+const MAX_FRAGMENTS: usize = 200;
 
 // TODO: year
 #[derive(Debug)]
@@ -39,6 +44,19 @@ pub struct SearchResult {
 }
 
 impl SearchResult {
+    pub fn try_many_lossy(fragments: HtmlFragments) -> Vec<Self> {
+        fragments
+            .into_iter()
+            .filter_map(|a| match Self::try_from(a.as_str()) {
+                Ok(sr) => Some(sr),
+                Err(why) => {
+                    eprintln!("Warning: {}", why);
+                    None
+                }
+            })
+            .collect()
+    }
+
     fn find_name_in_fragment(fragment: &str) -> Result<&str> {
         let m = NAME_REGEX
             .find(fragment)
@@ -81,29 +99,15 @@ impl fmt::Display for SearchResult {
     }
 }
 
-pub fn choose_from_results(results: &Vec<SearchResult>) -> Result<&SearchResult> {
-    let choices = {
-        let mut choices = results.iter()
-            .map(|sr| sr.to_string().into())
-            .collect::<Vec<Choice<String>>>();
-        choices.push(requestty::DefaultSeparator);
-        choices.push(Choice::Choice("I can't see what I'm looking for".into()));
-        choices
-    };
-
-    let question = Question::select("result")
-        .message("Pick the correct search result")
-        .choices(choices)
-        .build();
-
-    let answer = requestty::prompt_one(question)?;
-    let item = answer.as_list_item().unwrap();
-    if item.index < results.len() {
-        Ok(results.get(item.index).unwrap())
-    } else {
-        // User selected "I can't see what I'm looking for"
-        Err(RunError::NoDesiredSearchResults)
-    }
+pub fn request_and_scrape(search_term: &str) -> Result<HtmlFragments> {
+    let html = reqwest::get(format!("{}{}", URL_START, search_term))?.text()?;
+    let document = Html::parse_document(&html);
+    let fragments = document
+        .select(&RESULT_SELECTOR)
+        .take(MAX_FRAGMENTS)
+        .map(|er| er.inner_html())
+        .collect();
+    Ok(fragments)
 }
 
 #[cfg(test)]
