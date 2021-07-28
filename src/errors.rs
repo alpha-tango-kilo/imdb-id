@@ -3,6 +3,7 @@ use std::{fmt, io};
 use requestty::ErrorKind;
 use std::error::Error;
 use RunError::*;
+use SearchResultWarning::*;
 
 /*
 Variants prefixed with "Clap" will be printed by Clap as such:
@@ -15,8 +16,6 @@ pub type Result<T> = std::result::Result<T, RunError>;
 pub enum RunError {
     ClapNotUsize,
     NoSearchResults,
-    ImdbIdNotFound(String),
-    NameNotFound(String),
     Reqwest(reqwest::Error),
     InputUserHalted,
     InputIo(io::Error),
@@ -33,8 +32,6 @@ impl RunError {
         match self {
             ClapNotUsize => 1,
             NoSearchResults => 1,
-            ImdbIdNotFound(_) => 2,
-            NameNotFound(_) => 2,
             Reqwest(_) => 2,
             InputUserHalted => 1,
             InputIo(_) => 2,
@@ -48,8 +45,6 @@ impl fmt::Display for RunError {
         match self {
             ClapNotUsize => write!(f, "expected a positive integer"),
             NoSearchResults => write!(f, "No search results"),
-            ImdbIdNotFound(s) => write!(f, "IMDb ID not found, please raise an issue if you are able to see the ID in the following text: {:?}", s),
-            NameNotFound(s) => write!(f, "Movie/Show name not found, please raise an issue if you are able to see a name in the following text: {:?}", s),
             Reqwest(reqwest_err) => write!(f, "Issue with web request: {}", reqwest_err),
             InputUserHalted => write!(f, "Program halted at user request"),
             InputIo(io_err) => write!(f, "IO error: {}", io_err),
@@ -81,3 +76,21 @@ impl From<io::Error> for RunError {
         InputIo(io_err)
     }
 }
+
+#[derive(Debug)]
+pub enum SearchResultWarning {
+    ImdbIdNotFound(String),
+    NameNotFound(String),
+}
+
+impl fmt::Display for SearchResultWarning {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ImdbIdNotFound(s) => write!(f, "IMDb ID not found, please raise an issue if you are able to see the ID in the following text: {:?}", s),
+            NameNotFound(s) => write!(f, "Movie/Show name not found, please raise an issue if you are able to see a name in the following text: {:?}", s),
+        }
+    }
+
+}
+
+impl Error for SearchResultWarning {}

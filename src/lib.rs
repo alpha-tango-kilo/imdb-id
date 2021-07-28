@@ -1,16 +1,15 @@
 mod clap_wrap;
-mod error;
+mod errors;
 mod user_input;
 
 pub use clap_wrap::*;
-pub use error::*;
+pub use errors::*;
 pub use user_input::choose_from_results;
+pub use search_result::SearchResult;
 
-use lazy_regex::*;
+use lazy_regex::Lazy;
 use reqwest::blocking as reqwest;
 use scraper::{Html, Selector};
-use std::convert::TryFrom;
-use std::fmt;
 
 pub type HtmlFragments = Vec<String>;
 
@@ -23,81 +22,8 @@ This gives movie names a 'dirt margin' of (1, 4): 1 character at the start, 4 ch
 pub const URL_START: &str = "https://www.imdb.com/find?s=tt&q=";
 pub static RESULT_SELECTOR: Lazy<Selector> =
     Lazy::new(|| Selector::parse("td.result_text").unwrap());
-// Matches something like "tt6856242"
-static ID_REGEX: Lazy<Regex> = lazy_regex!("tt[0-9]+");
-// Matches something like ">Kingsman: The Secret Service</a>"
-// +? means 1 or more, not greedily
-static NAME_REGEX: Lazy<Regex> = lazy_regex!(">.+?</a>");
-const DIRT_MARGIN_NAME: (usize, usize) = (1, 4);
-// Matches something like "(TV Series)"
-static GENRE_REGEX: Lazy<Regex> = lazy_regex!("\\([A-z]+(\\s[A-z]+)?\\)");
-const DIRT_MARGIN_GENRE: (usize, usize) = (1, 1);
 // Upper limit on things we'll bother to parse... just in case
 const MAX_FRAGMENTS: usize = 200;
-
-// TODO: year
-#[derive(Debug)]
-pub struct SearchResult {
-    pub name: String,
-    pub id: String,
-    pub genre: String,
-}
-
-impl SearchResult {
-    pub fn try_many_lossy(fragments: HtmlFragments) -> Vec<Self> {
-        fragments
-            .into_iter()
-            .filter_map(|a| match Self::try_from(a.as_str()) {
-                Ok(sr) => Some(sr),
-                Err(why) => {
-                    eprintln!("Warning: {}", why);
-                    None
-                }
-            })
-            .collect()
-    }
-
-    fn find_name_in_fragment(fragment: &str) -> Result<&str> {
-        let m = NAME_REGEX
-            .find(fragment)
-            .ok_or(RunError::NameNotFound(fragment.into()))?;
-        let dirty_name = m.as_str();
-        let clean_name = &dirty_name[DIRT_MARGIN_NAME.0..dirty_name.len() - DIRT_MARGIN_NAME.1];
-        Ok(clean_name)
-    }
-}
-
-impl TryFrom<&str> for SearchResult {
-    type Error = RunError;
-
-    fn try_from(fragment: &str) -> Result<Self> {
-        let id = ID_REGEX
-            .find(fragment)
-            .ok_or(RunError::ImdbIdNotFound(fragment.into()))?
-            .as_str()
-            .into();
-        let name = SearchResult::find_name_in_fragment(fragment)?.to_string();
-
-        if cfg!(debug_assertions) && name.len() > 40 {
-            println!("DEBUG: Strangely long fragment: {:?}", fragment);
-        }
-
-        let genre = match GENRE_REGEX.find(fragment) {
-            Some(m) => {
-                let s = m.as_str();
-                String::from(&s[DIRT_MARGIN_GENRE.0..s.len() - DIRT_MARGIN_GENRE.1])
-            }
-            None => String::from("Movie"),
-        };
-        Ok(SearchResult { name, id, genre })
-    }
-}
-
-impl fmt::Display for SearchResult {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} ({})", self.name, self.genre)
-    }
-}
 
 pub fn request_and_scrape(search_term: &str) -> Result<HtmlFragments> {
     let html = reqwest::get(format!("{}{}", URL_START, search_term))?.text()?;
@@ -110,9 +36,92 @@ pub fn request_and_scrape(search_term: &str) -> Result<HtmlFragments> {
     Ok(fragments)
 }
 
+mod search_result {
+    use lazy_regex::*;
+    use crate::{HtmlFragments, SearchResultWarning};
+    use crate::SearchResultWarning::*;
+    use std::convert::TryFrom;
+    use std::fmt;
+
+    // Matches something like "tt6856242"
+    static ID_REGEX: Lazy<Regex> = lazy_regex!("tt[0-9]+");
+    // Matches something like ">Kingsman: The Secret Service</a>"
+// +? means 1 or more, not greedily
+    static NAME_REGEX: Lazy<Regex> = lazy_regex!(">.+?</a>");
+    const DIRT_MARGIN_NAME: (usize, usize) = (1, 4);
+    // Matches something like "(TV Series)"
+    static GENRE_REGEX: Lazy<Regex> = lazy_regex!("\\([A-z]+(\\s[A-z]+)?\\)");
+    const DIRT_MARGIN_GENRE: (usize, usize) = (1, 1);
+
+    // TODO: year
+    #[derive(Debug)]
+    pub struct SearchResult {
+        pub name: String,
+        pub id: String,
+        pub genre: String,
+    }
+
+    impl SearchResult {
+        pub fn try_many_lossy(fragments: HtmlFragments) -> Vec<Self> {
+            fragments
+                .into_iter()
+                .filter_map(|a| match Self::try_from(a.as_str()) {
+                    Ok(sr) => Some(sr),
+                    Err(why) => {
+                        eprintln!("Warning: {}", why);
+                        None
+                    }
+                })
+                .collect()
+        }
+
+        fn find_name_in_fragment(fragment: &str) -> Result<&str, SearchResultWarning> {
+            let m = NAME_REGEX
+                .find(fragment)
+                .ok_or(NameNotFound(fragment.into()))?;
+            let dirty_name = m.as_str();
+            let clean_name = &dirty_name[DIRT_MARGIN_NAME.0..dirty_name.len() - DIRT_MARGIN_NAME.1];
+            Ok(clean_name)
+        }
+    }
+
+    impl TryFrom<&str> for SearchResult {
+        type Error = SearchResultWarning;
+
+        fn try_from(fragment: &str) -> Result<Self, SearchResultWarning> {
+            let id = ID_REGEX
+                .find(fragment)
+                .ok_or(ImdbIdNotFound(fragment.into()))?
+                .as_str()
+                .into();
+            let name = SearchResult::find_name_in_fragment(fragment)?.to_string();
+
+            if cfg!(debug_assertions) && name.len() > 40 {
+                println!("DEBUG: Strangely long fragment: {:?}", fragment);
+            }
+
+            let genre = match GENRE_REGEX.find(fragment) {
+                Some(m) => {
+                    let s = m.as_str();
+                    String::from(&s[DIRT_MARGIN_GENRE.0..s.len() - DIRT_MARGIN_GENRE.1])
+                }
+                None => String::from("Movie"),
+            };
+            Ok(SearchResult { name, id, genre })
+        }
+    }
+
+    impl fmt::Display for SearchResult {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write!(f, "{} ({})", self.name, self.genre)
+        }
+    }
+}
+
 #[cfg(test)]
 mod unit_tests {
     use super::*;
+    use std::convert::TryFrom;
 
     // Data taken from search term "kingsmen"
     const INPUTS: [&str; 10] = [
@@ -212,7 +221,7 @@ mod unit_tests {
         ];
         for fragment in fragments.iter() {
             match SearchResult::try_from(*fragment).unwrap_err() {
-                RunError::NameNotFound(_) => {}
+                SearchResultWarning::NameNotFound(_) => {}
                 e => panic!("Incorrect error type raised: {:?}", e),
             }
         }
@@ -227,7 +236,7 @@ mod unit_tests {
         ];
         for fragment in fragments.iter() {
             match SearchResult::try_from(*fragment).unwrap_err() {
-                RunError::ImdbIdNotFound(_) => {}
+                SearchResultWarning::ImdbIdNotFound(_) => {}
                 e => panic!("Incorrect error type raised: {:?}", e),
             }
         }
