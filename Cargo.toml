@@ -29,3 +29,6 @@ version = "0.11"
 features = [
     "blocking",
 ]
+
+[profile.release]
+lto = true
