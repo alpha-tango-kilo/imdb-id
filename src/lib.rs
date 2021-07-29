@@ -4,8 +4,8 @@ mod user_input;
 
 pub use clap_wrap::*;
 pub use errors::*;
-pub use user_input::choose_from_results;
 pub use search_result::SearchResult;
+pub use user_input::Pager;
 
 use lazy_regex::Lazy;
 use reqwest::blocking as reqwest;
@@ -22,8 +22,12 @@ This gives movie names a 'dirt margin' of (1, 4): 1 character at the start, 4 ch
 pub const URL_START: &str = "https://www.imdb.com/find?s=tt&q=";
 pub static RESULT_SELECTOR: Lazy<Selector> =
     Lazy::new(|| Selector::parse("td.result_text").unwrap());
+
 // Upper limit on things we'll bother to parse... just in case
+#[cfg(not(debug_assertions))]
 const MAX_FRAGMENTS: usize = 200;
+#[cfg(debug_assertions)]
+const MAX_FRAGMENTS: usize = 50;
 
 pub fn request_and_scrape(search_term: &str) -> Result<HtmlFragments> {
     let html = reqwest::get(format!("{}{}", URL_START, search_term))?.text()?;
@@ -37,16 +41,16 @@ pub fn request_and_scrape(search_term: &str) -> Result<HtmlFragments> {
 }
 
 mod search_result {
-    use lazy_regex::*;
-    use crate::{HtmlFragments, SearchResultWarning};
     use crate::SearchResultWarning::*;
+    use crate::{HtmlFragments, SearchResultWarning};
+    use lazy_regex::*;
     use std::convert::TryFrom;
     use std::fmt;
 
     // Matches something like "tt6856242"
     static ID_REGEX: Lazy<Regex> = lazy_regex!("tt[0-9]+");
     // Matches something like ">Kingsman: The Secret Service</a>"
-// +? means 1 or more, not greedily
+    // +? means 1 or more, not greedily
     static NAME_REGEX: Lazy<Regex> = lazy_regex!(">.+?</a>");
     const DIRT_MARGIN_NAME: (usize, usize) = (1, 4);
     // Matches something like "(TV Series)"

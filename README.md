@@ -42,7 +42,7 @@ OPTIONS:
 1. Proof of concept - done as of v0.1.0!
 2. CLI option parsing and non-interactive 'feeling lucky' mode with appropriate output - done as of v0.2.0!
 3. Interactive mode - done as v1.0.0!
-4. Showing more results if you can't see what you're after
+4. Result pagination
 5. Filtering by genre
 6. Filtering by year
 7. Customising fields shown in search results

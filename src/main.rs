@@ -24,7 +24,8 @@ fn app() -> Result<()> {
         println!("{}", search_result.id);
     } else {
         // Guaranteed to be interactive
-        let selected = choose_from_results(&search_results)?;
+        let mut pager = Pager::new(&search_results, &config);
+        let selected = pager.ask()?;
         println!("{}", selected.id);
     }
 
