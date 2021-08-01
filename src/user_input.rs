@@ -5,6 +5,9 @@ use std::cmp::min;
 use std::fmt::{Debug, Formatter};
 
 const PAGE_MAX: usize = 25;
+const NEXT_PAGE_LABEL: &str = "Next page";
+const PREV_PAGE_LABEL: &str = "Previous page";
+const GIVE_UP_LABEL: &str = "I can't see what I'm looking for";
 
 pub fn get_search_term() -> Result<String> {
     let question = Question::input("search_term")
@@ -42,15 +45,18 @@ impl<'a> Pager<'a> {
         loop {
             let start_index = self.page_index * self.page_size;
             let end_index = min(start_index + self.page_size, self.choices.len());
-            let there_is_another_page = self.page_index < self.max_page_index;
             let mut choices = self.choices[start_index..end_index].to_vec();
             let results_being_shown = choices.len();
             choices.push(requestty::DefaultSeparator);
-            if there_is_another_page {
-                choices.push(Choice::Choice("Next page".into()));
+
+            if self.page_index < self.max_page_index {
+                choices.push(Choice::Choice(NEXT_PAGE_LABEL.into()));
             }
-            choices.push(Choice::Choice("I can't see what I'm looking for".into()));
-            let number_of_choices = choices.len();
+            if self.page_index > 0 {
+                choices.push(Choice::Choice(PREV_PAGE_LABEL.into()));
+            }
+
+            choices.push(Choice::Choice(GIVE_UP_LABEL.into()));
 
             let question = Question::select("")
                 .message(if self.page_index == 0 {
@@ -73,17 +79,14 @@ impl<'a> Pager<'a> {
                     .search_results
                     .get(start_index + list_item.index)
                     .unwrap());
-            } else if list_item.index == number_of_choices - 2 {
-                // The above condition shouldn't be hit if there's no next page
-                // Next page
-                self.next_page();
-                continue;
-            } else if list_item.index == number_of_choices - 1 {
-                // Give up
-                return Err(RunError::NoDesiredSearchResults);
             } else {
-                // Selector chosen
-                unreachable!("requestty let you select the separator. Please raise an issue");
+                // Work out which other option has been chosen
+                match list_item.text.as_str() {
+                    NEXT_PAGE_LABEL => self.next_page(),
+                    PREV_PAGE_LABEL => self.prev_page(),
+                    GIVE_UP_LABEL => return Err(RunError::NoDesiredSearchResults),
+                    other => unreachable!("Please raise an issue because you managed to choose an option I didn't expect ({})", other),
+                }
             }
         }
     }
@@ -92,11 +95,9 @@ impl<'a> Pager<'a> {
         self.page_index = min(self.page_index + 1, self.max_page_index);
     }
 
-    /*
     fn prev_page(&mut self) {
-        self.page_index = self.page_size.saturating_sub(1);
+        self.page_index = self.page_index.saturating_sub(1);
     }
-    */
 }
 
 impl<'a> Debug for Pager<'a> {
