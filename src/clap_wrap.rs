@@ -55,7 +55,11 @@ impl RuntimeConfig {
                 });
                 search_term.trim().into()
             }
-            None => user_input::get_search_term()?,
+            None => if cfg!(not(test)) {
+                user_input::get_search_term()?
+            } else {
+                String::new()
+            },
         };
 
         // Note: atty checks are disabled for testing
