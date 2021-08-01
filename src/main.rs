@@ -12,7 +12,7 @@ fn app() -> Result<()> {
     let config = RuntimeConfig::new()?;
 
     let fragments = request_and_scrape(&config.search_term)?;
-    let search_results = SearchResult::try_many_lossy(fragments);
+    let search_results = SearchResult::try_many_lossy(fragments, &config.filters);
 
     if search_results.len() == 0 {
         return Err(RunError::NoSearchResults);

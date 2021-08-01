@@ -42,7 +42,7 @@ pub fn request_and_scrape(search_term: &str) -> Result<HtmlFragments> {
 
 mod search_result {
     use crate::SearchResultWarning::*;
-    use crate::{HtmlFragments, SearchResultWarning};
+    use crate::{Filter, HtmlFragments, SearchResultWarning};
     use lazy_regex::*;
     use std::convert::TryFrom;
     use std::fmt;
@@ -66,7 +66,7 @@ mod search_result {
     }
 
     impl SearchResult {
-        pub fn try_many_lossy(fragments: HtmlFragments) -> Vec<Self> {
+        pub fn try_many_lossy(fragments: HtmlFragments, filters: &Vec<Filter>) -> Vec<Self> {
             fragments
                 .into_iter()
                 .filter_map(|a| match Self::try_from(a.as_str()) {
@@ -76,6 +76,7 @@ mod search_result {
                         None
                     }
                 })
+                .filter(|sr| filters.iter().any(|f| sr.matches_filter(f)))
                 .collect()
         }
 
@@ -86,6 +87,13 @@ mod search_result {
             let dirty_name = m.as_str();
             let clean_name = &dirty_name[DIRT_MARGIN_NAME.0..dirty_name.len() - DIRT_MARGIN_NAME.1];
             Ok(clean_name)
+        }
+
+        fn matches_filter(&self, filter: &Filter) -> bool {
+            use Filter::*;
+            match filter {
+                Genre(g) => self.genre.eq_ignore_ascii_case(g),
+            }
         }
     }
 
