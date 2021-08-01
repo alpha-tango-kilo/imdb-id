@@ -45,8 +45,8 @@ OPTIONS:
             Filters results to a specific genre
             Can be given multiple arguments or passed multiple times, working as a chain of OR
             statements logically. Filters are all case insensitive
-            It is STRONGLY recommended you quote genres, as most have spaces
-            Examples include: 'Movie', 'TV episode', 'TV series'
+            It is STRONGLY recommended you quote genres with double quotes, as most have spaces
+            Examples include: Movie, "TV episode", "TV series"
 
     -r, --results <number_of_results>
             The maximum number of results to show from IMDb
@@ -59,7 +59,7 @@ OPTIONS:
 2. CLI option parsing and non-interactive 'feeling lucky' mode with appropriate output - done as of v0.2.0!
 3. Interactive mode - done as v1.0.0!
 4. Result pagination - done as of v1.0.1!
-5. Filtering by genre - dont as of v1.0.2!
+5. Filtering by genre - done as of v1.0.2!
 6. Filtering by year
 7. Customising fields shown in search results
 8. Use async/tokio properly

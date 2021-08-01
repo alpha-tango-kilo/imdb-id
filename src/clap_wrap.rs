@@ -47,8 +47,9 @@ impl RuntimeConfig {
                     Can be given multiple arguments or passed multiple times, \
                     working as a chain of OR statements logically. \
                     Filters are all case insensitive\n\
-                    It is STRONGLY recommended you quote genres, as most have spaces\n\
-                    Examples include: 'Movie', 'TV episode', 'TV series'",
+                    It is STRONGLY recommended you quote genres with double quotes, \
+                    as most have spaces\n\
+                    Examples include: Movie, \"TV episode\", \"TV series\"",
                     )
                     .takes_value(true)
                     .multiple(true),
