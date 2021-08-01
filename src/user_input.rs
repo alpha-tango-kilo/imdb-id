@@ -8,6 +8,7 @@ use requestty::Question;
 use std::cmp::min;
 use std::fmt::{Debug, Formatter};
 use std::io::stdout;
+use std::ops::Rem;
 
 const PAGE_MAX: usize = 25;
 const NEXT_PAGE_LABEL: &str = "Next page";
@@ -31,18 +32,23 @@ pub struct Pager<'a> {
 
 impl<'a> Pager<'a> {
     pub fn new(search_results: &'a Vec<SearchResult>, config: &RuntimeConfig) -> Self {
-        // Subtract 3 to account for separator and misc. options
-        let page_size = min(config.number_of_results, PAGE_MAX - 3);
+        let page_size = min(config.number_of_results, PAGE_MAX);
+
         let choices = search_results
             .iter()
             .map(|sr| sr.to_string().into())
             .collect();
+
+        let mut max_page_index = search_results.len() / page_size;
+        if search_results.len().rem(page_size) == 0 {
+             max_page_index -= 1;
+        }
         Pager {
             choices,
             search_results,
             page_size,
             page_index: 0,
-            max_page_index: search_results.len() / page_size,
+            max_page_index,
         }
     }
 
@@ -113,7 +119,7 @@ impl<'a> Debug for Pager<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "Search results: {}\n", self.search_results.len())?;
         write!(f, "Page size: {}\n", self.page_size)?;
-        write!(f, "Number of pages: {}\n", self.max_page_index)?;
+        write!(f, "Number of pages: {}\n", self.max_page_index + 1)?;
         write!(f, "Page index: {}\n", self.page_index)
     }
 }
