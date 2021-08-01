@@ -12,6 +12,7 @@ repository = "https://codeberg.org/alpha-tango-kilo/imdb-id"
 
 [dependencies]
 atty = "0.2"
+crossterm = "0.20"
 lazy-regex = "2.2"
 scraper = "0.12"
 requestty = "0.1"

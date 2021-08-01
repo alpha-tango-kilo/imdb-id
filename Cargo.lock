@@ -469,6 +469,7 @@ version = "1.0.0"
 dependencies = [
  "atty",
  "clap",
+ "crossterm",
  "lazy-regex",
  "requestty",
  "reqwest",

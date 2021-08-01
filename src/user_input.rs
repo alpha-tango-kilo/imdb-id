@@ -1,8 +1,13 @@
 use crate::*;
+use crossterm::cursor::MoveToPreviousLine;
+use crossterm::terminal::Clear;
+use crossterm::terminal::ClearType::FromCursorDown;
+use crossterm::ExecutableCommand;
 use requestty::question::Choice;
 use requestty::Question;
 use std::cmp::min;
 use std::fmt::{Debug, Formatter};
+use std::io::stdout;
 
 const PAGE_MAX: usize = 25;
 const NEXT_PAGE_LABEL: &str = "Next page";
@@ -42,21 +47,22 @@ impl<'a> Pager<'a> {
     }
 
     pub fn ask(&mut self) -> Result<&'a SearchResult> {
+        let mut stdout = stdout();
         loop {
             let start_index = self.page_index * self.page_size;
             let end_index = min(start_index + self.page_size, self.choices.len());
-            let mut choices = self.choices[start_index..end_index].to_vec();
-            let results_being_shown = choices.len();
-            choices.push(requestty::DefaultSeparator);
+            let mut displayed_choices = self.choices[start_index..end_index].to_vec();
+            let results_being_shown = displayed_choices.len();
+            displayed_choices.push(requestty::DefaultSeparator);
 
             if self.page_index < self.max_page_index {
-                choices.push(Choice::Choice(NEXT_PAGE_LABEL.into()));
+                displayed_choices.push(Choice::Choice(NEXT_PAGE_LABEL.into()));
             }
             if self.page_index > 0 {
-                choices.push(Choice::Choice(PREV_PAGE_LABEL.into()));
+                displayed_choices.push(Choice::Choice(PREV_PAGE_LABEL.into()));
             }
 
-            choices.push(Choice::Choice(GIVE_UP_LABEL.into()));
+            displayed_choices.push(Choice::Choice(GIVE_UP_LABEL.into()));
 
             let question = Question::select("")
                 .message(if self.page_index == 0 {
@@ -68,7 +74,7 @@ impl<'a> Pager<'a> {
                         self.max_page_index + 1
                     )
                 })
-                .choices(choices)
+                .choices(displayed_choices)
                 .build();
 
             let answer = requestty::prompt_one(question)?;
@@ -81,6 +87,9 @@ impl<'a> Pager<'a> {
                     .unwrap());
             } else {
                 // Work out which other option has been chosen
+                stdout
+                    .execute(MoveToPreviousLine(1))?
+                    .execute(Clear(FromCursorDown))?;
                 match list_item.text.as_str() {
                     NEXT_PAGE_LABEL => self.next_page(),
                     PREV_PAGE_LABEL => self.prev_page(),

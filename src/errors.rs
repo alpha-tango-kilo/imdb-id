@@ -18,7 +18,7 @@ pub enum RunError {
     NoSearchResults,
     Reqwest(reqwest::Error),
     InputUserHalted,
-    InputIo(io::Error),
+    InputIo(io::Error), // includes crossterm
     NoDesiredSearchResults,
 }
 
@@ -90,7 +90,6 @@ impl fmt::Display for SearchResultWarning {
             NameNotFound(s) => write!(f, "Movie/Show name not found, please raise an issue if you are able to see a name in the following text: {:?}", s),
         }
     }
-
 }
 
 impl Error for SearchResultWarning {}
