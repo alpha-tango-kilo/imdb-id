@@ -42,10 +42,11 @@ OPTIONS:
 1. Proof of concept - done as of v0.1.0!
 2. CLI option parsing and non-interactive 'feeling lucky' mode with appropriate output - done as of v0.2.0!
 3. Interactive mode - done as v1.0.0!
-4. Result pagination
+4. Result pagination - done as of v1.0.1!
 5. Filtering by genre
 6. Filtering by year
 7. Customising fields shown in search results
 8. Use async/tokio properly
-9. ???
-10. Profit
+9. Different output format support: JSON, YAML, etc.
+10. ???
+11. Profit
