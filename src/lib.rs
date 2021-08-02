@@ -13,15 +13,8 @@ use scraper::{Html, Selector};
 
 pub type HtmlFragments = Vec<String>;
 
-/*
-The DIRT_MARGIN_* constants refer to the amount of unwanted characters captured by the regex.
-For example, to capture the movie name we have to also find the > character to know we're at the start of the name, and the </a> tag to know we're at the end of the movie name.
-This gives movie names a 'dirt margin' of (1, 4): 1 character at the start, 4 characters at the end
- */
-
-pub const URL_START: &str = "https://www.imdb.com/find?s=tt&q=";
-pub static RESULT_SELECTOR: Lazy<Selector> =
-    Lazy::new(|| Selector::parse("td.result_text").unwrap());
+const URL_START: &str = "https://www.imdb.com/find?s=tt&q=";
+static RESULT_SELECTOR: Lazy<Selector> = Lazy::new(|| Selector::parse("td.result_text").unwrap());
 
 // Upper limit on things we'll bother to parse... just in case
 #[cfg(not(debug_assertions))]
@@ -47,6 +40,12 @@ mod search_result {
     use std::convert::TryFrom;
     use std::fmt;
 
+    /*
+    The DIRT_MARGIN_* constants refer to the amount of unwanted characters captured by the regex.
+    For example, to capture the movie name we have to also find the > character to know we're at the start of the name, and the </a> tag to know we're at the end of the movie name.
+    This gives movie names a 'dirt margin' of (1, 4): 1 character at the start, 4 characters at the end
+     */
+
     // Matches something like "tt6856242"
     static ID_REGEX: Lazy<Regex> = lazy_regex!("tt[0-9]+");
     // Matches something like ">Kingsman: The Secret Service</a>"
@@ -56,13 +55,16 @@ mod search_result {
     // Matches something like "(TV Series)"
     static GENRE_REGEX: Lazy<Regex> = lazy_regex!("\\([A-z]+(\\s[A-z]+)?\\)");
     const DIRT_MARGIN_GENRE: (usize, usize) = (1, 1);
+    // Matches something like "(1989)"
+    static YEAR_REGEX: Lazy<Regex> = lazy_regex!("\\([0-9]{4}\\)");
+    const DIRT_MARGIN_YEAR: (usize, usize) = (1, 1);
 
-    // TODO: year
     #[derive(Debug)]
     pub struct SearchResult {
         pub name: String,
         pub id: String,
         pub genre: String,
+        pub year: Option<u16>,
     }
 
     impl SearchResult {
@@ -108,10 +110,6 @@ mod search_result {
                 .into();
             let name = SearchResult::find_name_in_fragment(fragment)?.to_string();
 
-            if cfg!(debug_assertions) && name.len() > 40 {
-                println!("DEBUG: Strangely long fragment: {:?}", fragment);
-            }
-
             let genre = match GENRE_REGEX.find(fragment) {
                 Some(m) => {
                     let s = m.as_str();
@@ -119,13 +117,30 @@ mod search_result {
                 }
                 None => String::from("Movie"),
             };
-            Ok(SearchResult { name, id, genre })
+
+            let year = YEAR_REGEX.find(fragment).and_then(|m| {
+                let year = m.as_str();
+                let year = year[DIRT_MARGIN_YEAR.0..year.len() - DIRT_MARGIN_YEAR.1]
+                    .parse()
+                    .expect("Failed to parse a year that matched YEAR_REGEX");
+                Some(year)
+            });
+
+            Ok(SearchResult {
+                name,
+                id,
+                genre,
+                year,
+            })
         }
     }
 
     impl fmt::Display for SearchResult {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            write!(f, "{} ({})", self.name, self.genre)
+            match self.year {
+                Some(y) => write!(f, "{} ({}, {})", self.name, self.genre, y),
+                None => write!(f, "{} ({})", self.name, self.genre),
+            }
         }
     }
 }
