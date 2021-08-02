@@ -2,6 +2,7 @@ use std::{fmt, io};
 
 use requestty::ErrorKind;
 use std::error::Error;
+use std::num::ParseIntError;
 use RunError::*;
 use SearchResultWarning::*;
 
@@ -15,6 +16,7 @@ pub type Result<T> = std::result::Result<T, RunError>;
 #[derive(Debug)]
 pub enum RunError {
     ClapNotUsize,
+    InvalidYearRange(ParseIntError),
     NoSearchResults,
     Reqwest(reqwest::Error),
     InputUserHalted,
@@ -31,6 +33,7 @@ impl RunError {
          */
         match self {
             ClapNotUsize => 1,
+            InvalidYearRange(_) => 1,
             NoSearchResults => 1,
             Reqwest(_) => 2,
             InputUserHalted => 1,
@@ -44,6 +47,7 @@ impl fmt::Display for RunError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ClapNotUsize => write!(f, "expected a positive integer"),
+            InvalidYearRange(err) => write!(f, "Invalid year / year range ({})", err),
             NoSearchResults => write!(f, "No search results"),
             Reqwest(reqwest_err) => write!(f, "Issue with web request: {}", reqwest_err),
             InputUserHalted => write!(f, "Program halted at user request"),

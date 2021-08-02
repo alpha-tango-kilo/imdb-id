@@ -1,4 +1,4 @@
-use crate::{user_input, Result, RunError};
+use crate::{user_input, Filters, Result, RunError};
 #[cfg(not(test))]
 use atty::Stream;
 use clap::{App, AppSettings, Arg, ArgMatches};
@@ -7,7 +7,7 @@ pub struct RuntimeConfig {
     pub search_term: String,
     pub interactive: bool,
     pub number_of_results: usize,
-    pub filters: Vec<Filter>,
+    pub filters: Filters,
 }
 
 impl RuntimeConfig {
@@ -55,6 +55,19 @@ impl RuntimeConfig {
                     .multiple(true),
             )
             .arg(
+                Arg::new("filter_year")
+                    .short('y')
+                    .long("year")
+                    .about("Filter results to a specific year")
+                    .long_about(
+                        "Filters results to a specific year, or range of years\n\
+                    Examples: 2021, 1990-2000, 2000- (2000 onwards), \
+                    -2000 (before 2000)",
+                    )
+                    .takes_value(true)
+                    .allow_hyphen_values(true),
+            )
+            .arg(
                 Arg::new("search_term")
                     .about("The title of the movie/show you're looking for")
                     .takes_value(true)
@@ -99,16 +112,11 @@ impl RuntimeConfig {
             1
         };
 
-        let mut filters = Vec::new();
-        if let Some(genres) = clap_matches.values_of("filter_genre") {
-            genres.for_each(|s| filters.push(Filter::Genre(s.into())));
-        }
-
         Ok(RuntimeConfig {
             search_term,
             interactive,
             number_of_results,
-            filters,
+            filters: Filters::new(&clap_matches)?,
         })
     }
 }
@@ -119,14 +127,9 @@ impl Default for RuntimeConfig {
             search_term: String::new(),
             interactive: true,
             number_of_results: 10,
-            filters: vec![],
+            filters: Filters::default(),
         }
     }
-}
-
-#[derive(Debug, Eq, PartialEq)]
-pub enum Filter {
-    Genre(String),
 }
 
 #[cfg(test)]

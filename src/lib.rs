@@ -1,9 +1,11 @@
 mod clap_wrap;
 mod errors;
+mod filters;
 mod user_input;
 
 pub use clap_wrap::*;
 pub use errors::*;
+pub use filters::*;
 pub use search_result::SearchResult;
 pub use user_input::Pager;
 
@@ -35,7 +37,7 @@ pub fn request_and_scrape(search_term: &str) -> Result<HtmlFragments> {
 
 mod search_result {
     use crate::SearchResultWarning::*;
-    use crate::{Filter, HtmlFragments, SearchResultWarning};
+    use crate::{Filters, HtmlFragments, SearchResultWarning};
     use lazy_regex::*;
     use std::convert::TryFrom;
     use std::fmt;
@@ -68,7 +70,7 @@ mod search_result {
     }
 
     impl SearchResult {
-        pub fn try_many_lossy(fragments: HtmlFragments, filters: &Vec<Filter>) -> Vec<Self> {
+        pub fn try_many_lossy(fragments: HtmlFragments, filters: &Filters) -> Vec<Self> {
             fragments
                 .into_iter()
                 .filter_map(|a| match Self::try_from(a.as_str()) {
@@ -78,7 +80,7 @@ mod search_result {
                         None
                     }
                 })
-                .filter(|sr| filters.len() == 0 || filters.iter().any(|f| sr.matches_filter(f)))
+                .filter(|sr| filters.allows(sr))
                 .collect()
         }
 
@@ -89,13 +91,6 @@ mod search_result {
             let dirty_name = m.as_str();
             let clean_name = &dirty_name[DIRT_MARGIN_NAME.0..dirty_name.len() - DIRT_MARGIN_NAME.1];
             Ok(clean_name)
-        }
-
-        fn matches_filter(&self, filter: &Filter) -> bool {
-            use Filter::*;
-            match filter {
-                Genre(g) => self.genre.eq_ignore_ascii_case(g),
-            }
         }
     }
 
