@@ -76,7 +76,7 @@ mod search_result {
                         None
                     }
                 })
-                .filter(|sr| filters.iter().any(|f| sr.matches_filter(f)))
+                .filter(|sr| filters.len() == 0 || filters.iter().any(|f| sr.matches_filter(f)))
                 .collect()
         }
 
