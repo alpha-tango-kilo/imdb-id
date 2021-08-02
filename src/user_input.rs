@@ -41,7 +41,7 @@ impl<'a> Pager<'a> {
 
         let mut max_page_index = search_results.len() / page_size;
         if search_results.len().rem(page_size) == 0 {
-             max_page_index -= 1;
+            max_page_index -= 1;
         }
         Pager {
             choices,

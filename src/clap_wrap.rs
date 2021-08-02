@@ -15,7 +15,8 @@ impl RuntimeConfig {
         RuntimeConfig::process_matches(&RuntimeConfig::create_clap_app().get_matches())
     }
 
-    fn create_clap_app() -> clap::App<'static> {
+    // public for testing purposes in filters.rs
+    pub(crate) fn create_clap_app() -> clap::App<'static> {
         App::new(env!("CARGO_PKG_NAME"))
             .version(env!("CARGO_PKG_VERSION"))
             .author("alpha-tango-kilo <git@heyatk.com>")
@@ -134,7 +135,6 @@ impl Default for RuntimeConfig {
 
 #[cfg(test)]
 mod unit_tests {
-    use super::Filter::*;
     use super::*;
 
     #[test]
@@ -165,62 +165,6 @@ mod unit_tests {
             .try_get_matches_from(vec![env!("CARGO_PKG_NAME"), "--version"])
             .unwrap_err();
         assert_eq!(err.kind, clap::ErrorKind::DisplayVersion);
-    }
-
-    #[test]
-    fn filter_genre_short() {
-        let clap = RuntimeConfig::create_clap_app();
-        let m = clap
-            .try_get_matches_from(vec![env!("CARGO_PKG_NAME"), "-g", "TV Episode"])
-            .unwrap();
-        assert_eq!(m.value_of("filter_genre"), Some("TV Episode"));
-
-        let config = RuntimeConfig::process_matches(&m).unwrap();
-        assert_eq!(
-            config.filters.as_slice(),
-            &[Genre("TV Episode".to_string())]
-        );
-    }
-
-    #[test]
-    fn filter_genre_long() {
-        let clap = RuntimeConfig::create_clap_app();
-        let m = clap
-            .try_get_matches_from(vec![env!("CARGO_PKG_NAME"), "--genre", "TV Episode"])
-            .unwrap();
-        assert_eq!(m.value_of("filter_genre"), Some("TV Episode"));
-
-        let config = RuntimeConfig::process_matches(&m).unwrap();
-        assert_eq!(
-            config.filters.as_slice(),
-            &[Genre("TV Episode".to_string())]
-        );
-    }
-
-    #[test]
-    fn filter_genre_multiple() {
-        let clap = RuntimeConfig::create_clap_app();
-        let m = clap
-            .try_get_matches_from(vec![
-                env!("CARGO_PKG_NAME"),
-                "-g",
-                "TV Episode",
-                "-g",
-                "TV Series",
-            ])
-            .unwrap();
-        let mut values = m.values_of("filter_genre").unwrap();
-        assert_eq!(values.next(), Some("TV Episode"));
-        assert_eq!(values.next(), Some("TV Series"));
-
-        let config = RuntimeConfig::process_matches(&m).unwrap();
-        assert_eq!(
-            config.filters,
-            &[
-                Genre("TV Episode".to_string()),
-                Genre("TV Series".to_string())
-            ]
-        );
     }
 
     #[test]
