@@ -163,7 +163,7 @@ mod unit_tests {
     an class=\"ghost\">|</span> Episode 22 </small> <br><small>- <a href=\"/title/tt3319722/?ref_=fn_tt_tt_8a\">Gosp
     el Music Showcase</a> (2011) (TV Series) </small> ",
         " <a href=\"/title/tt0220969/?ref_=fn_tt_tt_9\">All the King's Men</a> (1999) (TV Movie) ",
-        " <a href=\"/title/tt0084793/?ref_=fn_tt_tt_10\">Tian xia di yi</a> (1983) ",
+        " <a href=\"/title/tt0084793/?ref_=fn_tt_tt_10\">Tian xia di yi</a> ",
     ];
     static SEARCH_RESULTS: Lazy<Vec<SearchResult>> = Lazy::new(|| {
         INPUTS
@@ -236,6 +236,29 @@ mod unit_tests {
             .zip(SEARCH_RESULTS.iter())
             .for_each(|(genre, sr)| {
                 assert_eq!(&sr.genre, *genre);
+            });
+    }
+
+    #[test]
+    fn year_searching() {
+        let years: [Option<u16>; 10] = [
+            Some(2021),
+            Some(2006),
+            Some(2011),
+            Some(1949),
+            Some(2017),
+            Some(2014),
+            Some(1975),
+            Some(2017),
+            Some(1999),
+            None,
+        ];
+
+        years
+            .iter()
+            .zip(SEARCH_RESULTS.iter())
+            .for_each(|(year, sr)| {
+                assert_eq!(year, &sr.year);
             });
     }
 
