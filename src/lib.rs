@@ -48,6 +48,9 @@ mod search_result {
     use std::convert::TryFrom;
     use std::fmt;
 
+    #[cfg(feature = "serde")]
+    use serde::{Deserialize, Serialize};
+
     /*
     The DIRT_MARGIN_* constants refer to the amount of unwanted characters captured by the regex.
     For example, to capture the movie name we have to also find the > character to know we're at the start of the name, and the </a> tag to know we're at the end of the movie name.
@@ -68,6 +71,7 @@ mod search_result {
     const DIRT_MARGIN_YEAR: (usize, usize) = (1, 1);
 
     #[derive(Debug)]
+    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     pub struct SearchResult {
         pub name: String,
         pub id: String,
