@@ -88,6 +88,9 @@ impl RuntimeConfig {
                     .short('f')
                     .long("format")
                     .about("Change output format to desired standard")
+                    .long_about("Change output format to desired standard\n\
+                    Formats are only available if you opted-IN at installation\n\
+                    All the formats imdb-id can support are: json, yaml")
                     .validator(|s| OutputFormat::try_from(s))
                     .takes_value(true),
             );

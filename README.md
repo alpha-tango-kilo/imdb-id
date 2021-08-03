@@ -45,16 +45,46 @@ OPTIONS:
             Filters results to a specific genre
             Can be given multiple arguments or passed multiple times, working as a chain of OR
             statements logically. Filters are all case insensitive
-            It is STRONGLY recommended you quote genres with double quotes, as most have spaces
-            Examples include: Movie, "TV episode", "TV series"
+            It is STRONGLY recommended you quote genres, as most have spaces
+            Examples: Movie, "TV episode", "TV series"
 
     -y, --year <filter_year>
             Filters results to a specific year, or range of years
+            Media which has no year specified will always be included
+            Ranges are fully inclusive
             Examples: 2021, 1990-2000, 2000- (2000 onwards), -2000 (before 2000)
+
+    -f, --format <format>
+            Change output format to desired standard
+            Formats are only available if you opted-IN at installation
+            All the formats imdb-id can support are: json, yaml
 
     -r, --results <number_of_results>
             The maximum number of results to show from IMDb
 ```
+
+### Format support
+
+Use of the `-f/--format` requires an opt-in at install time as it adds a fair amount of bloat to the program.
+If you wish to install `imdb-id` with support for formats, you can either install them all with:
+
+```shell
+cargo install imdb-id --all-features
+```
+
+Or choose the formats you want from the below:
+* YAML
+* JSON
+
+And run:
+
+```shell
+cargo install imdb-id --features <format_in_lowercase>
+```
+
+If you're reading this now having already installed `imdb-id` with the a different feature selection to what you wanted, you need to add the `--force` flag to the install command to let Cargo override your existing installed binary cleanly
+
+If there's a format you'd like to see supported, open up an issue or pull request and I can see if I can make it happen!
 
 ## Roadmap
 
@@ -64,7 +94,7 @@ OPTIONS:
 4. Result pagination - done as of v1.0.1!
 5. Filtering by genre - done as of v1.0.2! (note: the v1.0.2 release has glaring bugs, please don't use it)
 6. Filtering by year - done as of v1.0.3!
-7. Different output format support: JSON, YAML, etc.
+7. Different output format support: JSON, YAML, etc. - done as of v1.0.4
 8. Use async/tokio properly
 9. ???
 10. Profit
