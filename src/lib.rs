@@ -13,6 +13,12 @@ use lazy_regex::Lazy;
 use reqwest::blocking as reqwest;
 use scraper::{Html, Selector};
 
+// Prevent weird builds
+// Serde without a language to serialise to
+#[cfg(all(feature = "serde", not(feature = "yaml"), not(feature = "json")))]
+compile_error!("Invalid feature selection, please use the documented features. \
+See Cargo.toml or README for information");
+
 pub type HtmlFragments = Vec<String>;
 
 const URL_START: &str = "https://www.imdb.com/find?s=tt&q=";
