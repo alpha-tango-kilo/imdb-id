@@ -1,6 +1,8 @@
 use imdb_id::OutputFormat::*;
 use imdb_id::*;
 use std::process;
+#[cfg(feature = "serde")]
+use std::cmp::min;
 
 fn main() {
     if let Err(why) = app() {
@@ -19,7 +21,7 @@ fn app() -> Result<()> {
         Human => {
             if search_results.len() == 0 {
                 return Err(RunError::NoSearchResults);
-            } else if search_results.len() == 1 {
+            } else if !config.interactive || search_results.len() == 1 {
                 let search_result = search_results.get(0).unwrap();
                 if config.interactive {
                     eprintln!("Only one result; {}", search_result);
@@ -34,12 +36,14 @@ fn app() -> Result<()> {
         }
         #[cfg(feature = "json")]
         Json => {
-            let json = serde_json::to_string_pretty(&search_results[..config.number_of_results])?;
+            let end_index = min(config.number_of_results, search_results.len());
+            let json = serde_json::to_string_pretty(&search_results[..end_index])?;
             println!("{}", json);
         }
         #[cfg(feature = "yaml")]
         Yaml => {
-            let yaml = serde_yaml::to_string(&search_results[..config.number_of_results])?;
+            let end_index = min(config.number_of_results, search_results.len());
+            let yaml = serde_yaml::to_string(&search_results[..end_index])?;
             println!("{}", yaml);
         }
     }
