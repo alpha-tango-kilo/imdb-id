@@ -1,5 +1,5 @@
-use imdb_id::*;
 use imdb_id::OutputFormat::*;
+use imdb_id::*;
 use std::process;
 
 fn main() {
@@ -31,17 +31,17 @@ fn app() -> Result<()> {
                 let selected = pager.ask()?;
                 println!("{}", selected.id);
             }
-        },
+        }
         #[cfg(feature = "json")]
         Json => {
             let json = serde_json::to_string_pretty(&search_results[..config.number_of_results])?;
             println!("{}", json);
-        },
+        }
         #[cfg(feature = "yaml")]
         Yaml => {
             let yaml = serde_yaml::to_string(&search_results[..config.number_of_results])?;
             println!("{}", yaml);
-        },
+        }
     }
 
     Ok(())

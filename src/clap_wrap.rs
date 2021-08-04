@@ -88,26 +88,28 @@ impl RuntimeConfig {
                     .short('f')
                     .long("format")
                     .about("Change output format to desired standard")
-                    .long_about("Change output format to desired standard\n\
+                    .long_about(
+                        "Change output format to desired standard\n\
                     Formats are only available if you opted-IN at installation\n\
-                    All the formats imdb-id can support are: json, yaml")
+                    All the formats imdb-id can support are: json, yaml",
+                    )
                     .validator(|s| OutputFormat::try_from(s))
                     .takes_value(true),
             );
-        }/* else {
-            // Mimic exact behaviour of format but always error
-            // Gives program consistent API
-            base_args.push(
-                Arg::new("format")
-                    .short('f')
-                    .long("format")
-                    .about("(DISABLED) Change output format to desired standard")
-                    .validator(|_| -> Result<()> {
-                        Err(RunError::ClapMissingFeature("'json' and/or 'yaml'"))
-                    })
-                    .takes_value(true),
-            )
-        }*/
+        } /* else {
+              // Mimic exact behaviour of format but always error
+              // Gives program consistent API
+              base_args.push(
+                  Arg::new("format")
+                      .short('f')
+                      .long("format")
+                      .about("(DISABLED) Change output format to desired standard")
+                      .validator(|_| -> Result<()> {
+                          Err(RunError::ClapMissingFeature("'json' and/or 'yaml'"))
+                      })
+                      .takes_value(true),
+              )
+          }*/
 
         App::new(env!("CARGO_PKG_NAME"))
             .version(env!("CARGO_PKG_VERSION"))

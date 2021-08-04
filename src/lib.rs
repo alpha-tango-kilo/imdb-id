@@ -13,11 +13,25 @@ use lazy_regex::Lazy;
 use reqwest::blocking as reqwest;
 use scraper::{Html, Selector};
 
+/*
+About using reqwest::blocking;
+From the tokio website, "When not to use Tokio"
+  - Sending a single web request. The place where Tokio gives you an advantage
+    is when you need to do many things at the same time. If you need to use a
+    library intended for asynchronous Rust such as reqwest, but you don't need
+    to do a lot of things at once, you should prefer the blocking version of
+    that library, as it will make your project simpler. Using Tokio will still
+    work, of course, but provides no real advantage over the blocking API
+- https://tokio.rs/tokio/tutorial
+ */
+
 // Prevent weird builds
 // Serde without a language to serialise to
 #[cfg(all(feature = "serde", not(feature = "yaml"), not(feature = "json")))]
-compile_error!("Invalid feature selection, please use the documented features. \
-See Cargo.toml or README for information");
+compile_error!(
+    "Invalid feature selection, please use the documented features. \
+See Cargo.toml or README for information"
+);
 
 pub type HtmlFragments = Vec<String>;
 

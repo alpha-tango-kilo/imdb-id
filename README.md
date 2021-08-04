@@ -94,7 +94,7 @@ If there's a format you'd like to see supported, open up an issue or pull reques
 4. Result pagination - done as of v1.0.1!
 5. Filtering by genre - done as of v1.0.2! (note: the v1.0.2 release has glaring bugs, please don't use it)
 6. Filtering by year - done as of v1.0.3!
-7. Different output format support: JSON, YAML, etc. - done as of v1.0.4
-8. Use async/tokio properly
+7. Different output format support: JSON, YAML, etc. - done as of v1.0.4!
+8. ~~Use async/tokio properly~~ - dismissed as unnecessary when the program only makes a single web request. See note in lib.rs for more
 9. ???
 10. Profit
