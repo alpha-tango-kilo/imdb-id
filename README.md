@@ -7,6 +7,8 @@ An easy-to-use commandline tool to look up the IMDb ID of a movie or show, given
 
 It's built for both easy interactive use and scripting capabilities
 
+![Demonstration GIF](./fluff/demo.gif)
+
 ## Why does this exist?
 
 Because *certain sites* support searching using these IMDb IDs and it's really useful as an unambiguous identifier
