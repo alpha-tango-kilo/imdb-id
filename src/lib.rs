@@ -63,7 +63,7 @@ mod search_result {
     use std::fmt;
 
     #[cfg(feature = "serde")]
-    use serde::{Deserialize, Serialize};
+    use serde::Serialize;
 
     /*
     The DIRT_MARGIN_* constants refer to the amount of unwanted characters captured by the regex.
@@ -85,7 +85,7 @@ mod search_result {
     const DIRT_MARGIN_YEAR: (usize, usize) = (1, 1);
 
     #[derive(Debug)]
-    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+    #[cfg_attr(feature = "serde", derive(Serialize))]
     pub struct SearchResult {
         pub name: String,
         pub id: String,
