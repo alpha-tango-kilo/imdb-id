@@ -9,7 +9,6 @@ readme = "README.md"
 license = "GPL-3.0-only"
 homepage = "https://codeberg.org/alpha-tango-kilo/imdb-id"
 repository = "https://codeberg.org/alpha-tango-kilo/imdb-id"
-exclude = ["fluff/"]
 
 [dependencies]
 atty = "0.2"
