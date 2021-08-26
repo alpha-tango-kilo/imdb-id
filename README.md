@@ -90,6 +90,8 @@ If there's a format you'd like to see supported, open up an issue or a pull requ
 
 ## Roadmap
 
+Version 1:
+
 1. Proof of concept - done as of v0.1.0!
 2. CLI option parsing and non-interactive 'feeling lucky' mode with appropriate output - done as of v0.2.0!
 3. Interactive mode - done as v1.0.0!
@@ -98,5 +100,14 @@ If there's a format you'd like to see supported, open up an issue or a pull requ
 6. Filtering by year - done as of v1.0.3!
 7. Different output format support: JSON, YAML, etc. - done as of v1.0.4!
 8. ~~Use async/tokio properly~~ - dismissed as unnecessary when the program only makes a single web request. See note in lib.rs for more
-9. ???
-10. Profit
+
+---
+
+Version 2:
+
+9. OMDb API migration
+10. Spinners! (using [indicatif](https://crates.io/crates/indicatif))
+11. OMDb automated sign-up
+12. [miette](https://crates.io/crates/miette)?
+13. ???
+14. Profit
