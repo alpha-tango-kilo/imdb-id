@@ -25,14 +25,6 @@ From the tokio website, "When not to use Tokio"
 - https://tokio.rs/tokio/tutorial
  */
 
-// Prevent weird builds
-// Serde without a language to serialise to
-#[cfg(all(feature = "serde", not(feature = "yaml"), not(feature = "json")))]
-compile_error!(
-    "Invalid feature selection, please use the documented features. \
-See Cargo.toml or README for information"
-);
-
 pub type HtmlFragments = Vec<String>;
 
 const URL_START: &str = "https://www.imdb.com/find?s=tt&q=";
@@ -59,11 +51,9 @@ mod search_result {
     use crate::SearchResultWarning::*;
     use crate::{Filters, HtmlFragments, SearchResultWarning};
     use lazy_regex::*;
+    use serde::Serialize;
     use std::convert::TryFrom;
     use std::fmt;
-
-    #[cfg(feature = "serde")]
-    use serde::Serialize;
 
     /*
     The DIRT_MARGIN_* constants refer to the amount of unwanted characters captured by the regex.
@@ -84,8 +74,7 @@ mod search_result {
     static YEAR_REGEX: Lazy<Regex> = lazy_regex!("\\([0-9]{4}\\)");
     const DIRT_MARGIN_YEAR: (usize, usize) = (1, 1);
 
-    #[derive(Debug)]
-    #[cfg_attr(feature = "serde", derive(Serialize))]
+    #[derive(Debug, Serialize)]
     pub struct SearchResult {
         pub name: String,
         pub id: String,

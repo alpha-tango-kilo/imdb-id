@@ -24,7 +24,6 @@ pub enum RunError {
     InputUserHalted,
     InputIo(io::Error), // includes crossterm
     NoDesiredSearchResults,
-    #[cfg(feature = "serde")]
     Serde(Box<dyn Error>),
 }
 
@@ -45,7 +44,6 @@ impl RunError {
             InputUserHalted => 1,
             InputIo(_) => 2,
             NoDesiredSearchResults => 0,
-            #[cfg(feature = "serde")]
             Serde(_) => 2,
         }
     }
@@ -68,7 +66,6 @@ impl fmt::Display for RunError {
             InputUserHalted => write!(f, "Program halted at user request"),
             InputIo(io_err) => write!(f, "IO error: {}", io_err),
             NoDesiredSearchResults => write!(f, "You couldn't find what you wanted :("),
-            #[cfg(feature = "serde")]
             Serde(e) => write!(f, "Failed to serialise output data ({})", e),
         }
     }
@@ -98,7 +95,6 @@ impl From<io::Error> for RunError {
     }
 }
 
-#[cfg(feature = "json")]
 impl From<serde_json::Error> for RunError {
     fn from(ser_err: serde_json::Error) -> Self {
         Serde(Box::new(ser_err))

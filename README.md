@@ -67,16 +67,15 @@ OPTIONS:
 
 ### Format support
 
-Use of the `-f/--format` requires an opt-in at install time as it adds a fair amount of bloat to the program.
-If you wish to install `imdb-id` with support for formats, you can either install them all with:
+By default, `imdb-id` only comes with `-f/--format` support for JSON.
+To install with all supported formats, use the following command:
 
 ```shell
 cargo install imdb-id --all-features
 ```
 
-Or choose the formats you want from the below:
+Or choose the additional formats you want from the below:
 * YAML
-* JSON
 
 And run:
 

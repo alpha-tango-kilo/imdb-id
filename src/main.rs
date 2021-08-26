@@ -1,8 +1,7 @@
 use imdb_id::OutputFormat::*;
 use imdb_id::*;
-use std::process;
-#[cfg(feature = "serde")]
 use std::cmp::min;
+use std::process;
 
 fn main() {
     if let Err(why) = app() {
@@ -34,7 +33,6 @@ fn app() -> Result<()> {
                 println!("{}", selected.id);
             }
         }
-        #[cfg(feature = "json")]
         Json => {
             let end_index = min(config.number_of_results, search_results.len());
             let json = serde_json::to_string_pretty(&search_results[..end_index])?;
