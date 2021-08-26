@@ -81,12 +81,12 @@ Or choose the formats you want from the below:
 And run:
 
 ```shell
-cargo install imdb-id --features <format_in_lowercase>
+cargo install imdb-id --features "<format_one> <format_two>"
 ```
 
-If you're reading this now having already installed `imdb-id` with the a different feature selection to what you wanted, you need to add the `--force` flag to the install command to let Cargo override your existing installed binary cleanly
+If you're reading this now having already installed `imdb-id` with the different feature selection to what you wanted, you need to add the `--force` flag to the install command to let Cargo override your existing installed binary cleanly
 
-If there's a format you'd like to see supported, open up an issue or pull request and I can see if I can make it happen!
+If there's a format you'd like to see supported, open up an issue or a pull request and I can see if I can make it happen!
 
 ## Roadmap
 

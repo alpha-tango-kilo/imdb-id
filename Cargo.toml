@@ -41,6 +41,7 @@ features = [
 ]
 
 [features]
+default = []
 json = ["serde", "serde_json"]
 yaml = ["serde", "serde_yaml"]
 
