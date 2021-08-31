@@ -1,13 +1,21 @@
+#![cfg_attr(debug_assertions, allow(dead_code, unused_imports))]
+
+use imdb_id::omdb::query_by_title;
 use imdb_id::OutputFormat::*;
 use imdb_id::*;
 use std::cmp::min;
 use std::process;
 
 fn main() {
-    if let Err(why) = app() {
+    match query_by_title("***REMOVED***", "kings") {
+        Ok(omdb) => println!("{:#?}", omdb),
+        Err(why) => eprintln!("{}", why),
+    }
+
+    /*if let Err(why) = app() {
         eprintln!("Error: {}", why);
         process::exit(why.error_code());
-    }
+    }*/
 }
 
 fn app() -> Result<()> {

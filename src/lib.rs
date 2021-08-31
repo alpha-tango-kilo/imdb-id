@@ -1,6 +1,7 @@
 mod clap_wrap;
 mod errors;
 mod filters;
+pub mod omdb;
 mod user_input;
 
 pub use clap_wrap::*;
