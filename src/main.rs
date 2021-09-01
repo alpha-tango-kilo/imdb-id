@@ -7,7 +7,7 @@ use std::cmp::min;
 use std::process;
 
 fn main() {
-    match query_by_title("***REMOVED***", "kings") {
+    match query_by_title(&std::env::var("OMDB_APIKEY").unwrap(), "kings") {
         Ok(omdb) => println!("{}", omdb),
         Err(why) => eprintln!("{}", why),
     }
