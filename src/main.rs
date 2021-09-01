@@ -8,7 +8,7 @@ use std::process;
 
 fn main() {
     match query_by_title("***REMOVED***", "kings") {
-        Ok(omdb) => println!("{:#?}", omdb),
+        Ok(omdb) => println!("{}", omdb),
         Err(why) => eprintln!("{}", why),
     }
 

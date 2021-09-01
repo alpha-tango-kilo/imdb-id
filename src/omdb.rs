@@ -1,16 +1,9 @@
-use crate::Result;
+use crate::{Result, RunError};
 use reqwest::blocking::Client;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer};
-use std::fmt::Debug;
+use std::fmt::{self, Debug};
 use std::str::FromStr;
-
-#[derive(Debug, Deserialize)]
-#[serde(untagged)]
-pub enum OmdbResponse {
-    Found(OmdbEntry),
-    NotFound(String), // hold undeserialised JSON until we know what forms it comes in
-}
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]
@@ -20,8 +13,6 @@ pub struct OmdbEntry {
     pub year: u16,
     #[serde(rename = "Rated")]
     pub rating: String,
-    #[serde(rename = "Released")]
-    pub release: String,
     pub runtime: String,
     #[serde(rename = "Genre", deserialize_with = "de_comma_list")]
     pub genres: Vec<String>,
@@ -40,6 +31,15 @@ pub struct OmdbEntry {
     pub imdb_rating: f32,
     #[serde(rename = "Type")]
     pub media_type: String,
+}
+
+impl fmt::Display for OmdbEntry {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "{} ({})", self.title, self.year)?;
+        writeln!(f, "Genre(s): {}", self.genres.join(", "))?;
+        writeln!(f, "\n{}\n", self.plot)?;
+        writeln!(f, "IMDb rating: {}\tIMDb ID: {}", self.imdb_rating, self.imdb_id)
+    }
 }
 
 /*
@@ -70,14 +70,19 @@ where
     Ok(s.split(", ").map(|s| s.into()).collect())
 }
 
-pub fn query_by_title(api_key: &str, title: &str) -> Result<OmdbResponse> {
+pub fn query_by_title(api_key: &str, title: &str) -> Result<OmdbEntry> {
     let client = Client::new();
-    let omdb_entry = client
+    let body = client
         .get("https://www.omdbapi.com/")
         .query(&[("apikey", api_key), ("t", title)])
         .send()?
-        .json()?;
-    Ok(omdb_entry)
+        .text()?;
+
+    if body == r#"{"Response":"False","Error":"Movie not found!"}"# {
+        Err(RunError::OmdbNotFound(title.into()))
+    } else {
+        serde_json::from_str(&body).map_err(|_| RunError::OmdbUnrecognised(body))
+    }
 }
 
 #[cfg(test)]
