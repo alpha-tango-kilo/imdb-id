@@ -13,6 +13,12 @@ pub use user_input::Pager;
 use lazy_regex::Lazy;
 use reqwest::blocking as reqwest;
 use scraper::{Html, Selector};
+use serde::de::Error;
+use serde::{Deserialize, Deserializer};
+use std::fmt;
+use std::num::ParseIntError;
+use std::ops::RangeInclusive;
+use std::str::FromStr;
 
 /*
 About using reqwest::blocking;
@@ -46,6 +52,72 @@ pub fn request_and_scrape(search_term: &str) -> Result<HtmlFragments> {
         .map(|er| er.inner_html())
         .collect();
     Ok(fragments)
+}
+
+// TODO: unit test
+#[derive(Debug)]
+#[cfg_attr(test, derive(Eq, PartialEq))]
+pub enum Year {
+    Single(u16),
+    Range(RangeInclusive<u16>),
+    // TODO: add Start/End variants?
+}
+
+impl FromStr for Year {
+    type Err = ParseIntError;
+
+    fn from_str(year_str: &str) -> std::result::Result<Self, Self::Err> {
+        use std::mem;
+
+        let mut start = u16::MIN;
+        let mut end = u16::MAX;
+        // e.g. -2021
+        if year_str.starts_with('-') {
+            end = year_str[1..].parse()?;
+            // e.g. 1999-
+        } else if year_str.ends_with('-') {
+            start = year_str[..year_str.len() - 1].parse()?;
+        } else {
+            match year_str.split_once(&['-', '–'][..]) {
+                // e.g. 1999 - 2021
+                Some((s, e)) => {
+                    start = s.parse()?;
+                    end = e.parse()?;
+                    if start > end {
+                        // User is rather stupid, let's save them
+                        mem::swap(&mut start, &mut end);
+                    }
+                }
+                // e.g. 2010
+                None => {
+                    let n = year_str.parse()?;
+                    return Ok(Year::Single(n));
+                }
+            }
+        }
+        Ok(Year::Range(start..=end))
+    }
+}
+
+impl<'de> Deserialize<'de> for Year {
+    fn deserialize<D>(d: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(d)?;
+        Year::from_str(&s)
+            .map_err(|e| D::Error::custom(format!("Could not parse field as year ({:?})", e)))
+    }
+}
+
+impl fmt::Display for Year {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use Year::*;
+        match self {
+            Single(y) => write!(f, "{}", y),
+            Range(r) => write!(f, "{}-{}", r.start(), r.end()),
+        }
+    }
 }
 
 mod search_result {
@@ -152,151 +224,151 @@ mod search_result {
             }
         }
     }
-}
 
-#[cfg(test)]
-mod unit_tests {
-    use super::*;
-    use std::convert::TryFrom;
+    #[cfg(test)]
+    mod unit_tests {
+        use super::*;
+        use std::convert::TryFrom;
 
-    // Data taken from search term "kingsmen"
-    const INPUTS: [&str; 10] = [
-        " <a href=\"/title/tt6856242/?ref_=fn_tt_tt_1\">The King's Man</a> (2021) ",
-        " <a href=\"/title/tt0405676/?ref_=fn_tt_tt_2\">All the King's Men</a> (2006) ",
-        " <a href=\"/title/tt2119547/?ref_=fn_tt_tt_3\">The Kingsmen</a> (2011) (Short) ",
-        " <a href=\"/title/tt0041113/?ref_=fn_tt_tt_4\">All the King's Men</a> (1949) ",
-        " <a href=\"/title/tt4649466/?ref_=fn_tt_tt_5\">Kingsman: The Golden Circle</a> (2017) ",
-        " <a href=\"/title/tt2802144/?ref_=fn_tt_tt_6\">Kingsman: The Secret Service</a> (2014) ",
-        " <a href=\"/title/tt0222577/?ref_=fn_tt_tt_7\">King's Men</a> (1975) (TV Series) ",
-        " <a href=\"/title/tt14642606/?ref_=fn_tt_tt_8\">The Kingsmen</a> (2017) (TV Episode) <br> <small>- Season 3 <sp
+        // Data taken from search term "kingsmen"
+        const INPUTS: [&str; 10] = [
+            " <a href=\"/title/tt6856242/?ref_=fn_tt_tt_1\">The King's Man</a> (2021) ",
+            " <a href=\"/title/tt0405676/?ref_=fn_tt_tt_2\">All the King's Men</a> (2006) ",
+            " <a href=\"/title/tt2119547/?ref_=fn_tt_tt_3\">The Kingsmen</a> (2011) (Short) ",
+            " <a href=\"/title/tt0041113/?ref_=fn_tt_tt_4\">All the King's Men</a> (1949) ",
+            " <a href=\"/title/tt4649466/?ref_=fn_tt_tt_5\">Kingsman: The Golden Circle</a> (2017) ",
+            " <a href=\"/title/tt2802144/?ref_=fn_tt_tt_6\">Kingsman: The Secret Service</a> (2014) ",
+            " <a href=\"/title/tt0222577/?ref_=fn_tt_tt_7\">King's Men</a> (1975) (TV Series) ",
+            " <a href=\"/title/tt14642606/?ref_=fn_tt_tt_8\">The Kingsmen</a> (2017) (TV Episode) <br> <small>- Season 3 <sp
     an class=\"ghost\">|</span> Episode 22 </small> <br><small>- <a href=\"/title/tt3319722/?ref_=fn_tt_tt_8a\">Gosp
     el Music Showcase</a> (2011) (TV Series) </small> ",
-        " <a href=\"/title/tt0220969/?ref_=fn_tt_tt_9\">All the King's Men</a> (1999) (TV Movie) ",
-        " <a href=\"/title/tt0084793/?ref_=fn_tt_tt_10\">Tian xia di yi</a> ",
-    ];
-    static SEARCH_RESULTS: Lazy<Vec<SearchResult>> = Lazy::new(|| {
-        INPUTS
-            .iter()
-            .map(|s| match SearchResult::try_from(*s) {
-                Ok(sr) => sr,
-                Err(why) => panic!("Failed to process test data: {}", why),
-            })
-            .collect()
-    });
-
-    #[test]
-    fn name_searching() {
-        let names = [
-            "The King's Man",
-            "All the King's Men",
-            "The Kingsmen",
-            "All the King's Men",
-            "Kingsman: The Golden Circle",
-            "Kingsman: The Secret Service",
-            "King's Men",
-            "The Kingsmen",
-            "All the King's Men",
-            "Tian xia di yi",
+            " <a href=\"/title/tt0220969/?ref_=fn_tt_tt_9\">All the King's Men</a> (1999) (TV Movie) ",
+            " <a href=\"/title/tt0084793/?ref_=fn_tt_tt_10\">Tian xia di yi</a> ",
         ];
-        names
-            .iter()
-            .zip(SEARCH_RESULTS.iter())
-            .for_each(|(name, sr)| {
-                assert_eq!(sr.name, *name);
-            });
-    }
-
-    #[test]
-    fn id_searching() {
-        let ids = [
-            "tt6856242",
-            "tt0405676",
-            "tt2119547",
-            "tt0041113",
-            "tt4649466",
-            "tt2802144",
-            "tt0222577",
-            "tt14642606",
-            "tt0220969",
-            "tt0084793",
-        ];
-        ids.iter().zip(SEARCH_RESULTS.iter()).for_each(|(id, sr)| {
-            assert_eq!(sr.id, *id);
+        static SEARCH_RESULTS: Lazy<Vec<SearchResult>> = Lazy::new(|| {
+            INPUTS
+                .iter()
+                .map(|s| match SearchResult::try_from(*s) {
+                    Ok(sr) => sr,
+                    Err(why) => panic!("Failed to process test data: {}", why),
+                })
+                .collect()
         });
-    }
 
-    #[test]
-    fn genre_searching() {
-        let genres = [
-            "Movie",
-            "Movie",
-            "Short",
-            "Movie",
-            "Movie",
-            "Movie",
-            "TV Series",
-            "TV Episode",
-            "TV Movie",
-            "Movie",
-        ];
+        #[test]
+        fn name_searching() {
+            let names = [
+                "The King's Man",
+                "All the King's Men",
+                "The Kingsmen",
+                "All the King's Men",
+                "Kingsman: The Golden Circle",
+                "Kingsman: The Secret Service",
+                "King's Men",
+                "The Kingsmen",
+                "All the King's Men",
+                "Tian xia di yi",
+            ];
+            names
+                .iter()
+                .zip(SEARCH_RESULTS.iter())
+                .for_each(|(name, sr)| {
+                    assert_eq!(sr.name, *name);
+                });
+        }
 
-        genres
-            .iter()
-            .zip(SEARCH_RESULTS.iter())
-            .for_each(|(genre, sr)| {
-                assert_eq!(&sr.genre, *genre);
+        #[test]
+        fn id_searching() {
+            let ids = [
+                "tt6856242",
+                "tt0405676",
+                "tt2119547",
+                "tt0041113",
+                "tt4649466",
+                "tt2802144",
+                "tt0222577",
+                "tt14642606",
+                "tt0220969",
+                "tt0084793",
+            ];
+            ids.iter().zip(SEARCH_RESULTS.iter()).for_each(|(id, sr)| {
+                assert_eq!(sr.id, *id);
             });
-    }
+        }
 
-    #[test]
-    fn year_searching() {
-        let years: [Option<u16>; 10] = [
-            Some(2021),
-            Some(2006),
-            Some(2011),
-            Some(1949),
-            Some(2017),
-            Some(2014),
-            Some(1975),
-            Some(2017),
-            Some(1999),
-            None,
-        ];
+        #[test]
+        fn genre_searching() {
+            let genres = [
+                "Movie",
+                "Movie",
+                "Short",
+                "Movie",
+                "Movie",
+                "Movie",
+                "TV Series",
+                "TV Episode",
+                "TV Movie",
+                "Movie",
+            ];
 
-        years
-            .iter()
-            .zip(SEARCH_RESULTS.iter())
-            .for_each(|(year, sr)| {
-                assert_eq!(year, &sr.year);
-            });
-    }
+            genres
+                .iter()
+                .zip(SEARCH_RESULTS.iter())
+                .for_each(|(genre, sr)| {
+                    assert_eq!(&sr.genre, *genre);
+                });
+        }
 
-    #[test]
-    fn name_not_found() {
-        let fragments = [
-            "tt1234 (Movie)",
-            "The King's Man tt123124 (TV Episode)",
-            "<a href=\"/title/tt6856242/?ref_=fn_tt_tt_1\">The King's Man<a> (2021)",
-        ];
-        for fragment in fragments.iter() {
-            match SearchResult::try_from(*fragment).unwrap_err() {
-                SearchResultWarning::NameNotFound(_) => {}
-                e => panic!("Incorrect error type raised: {:?}", e),
+        #[test]
+        fn year_searching() {
+            let years: [Option<u16>; 10] = [
+                Some(2021),
+                Some(2006),
+                Some(2011),
+                Some(1949),
+                Some(2017),
+                Some(2014),
+                Some(1975),
+                Some(2017),
+                Some(1999),
+                None,
+            ];
+
+            years
+                .iter()
+                .zip(SEARCH_RESULTS.iter())
+                .for_each(|(year, sr)| {
+                    assert_eq!(year, &sr.year);
+                });
+        }
+
+        #[test]
+        fn name_not_found() {
+            let fragments = [
+                "tt1234 (Movie)",
+                "The King's Man tt123124 (TV Episode)",
+                "<a href=\"/title/tt6856242/?ref_=fn_tt_tt_1\">The King's Man<a> (2021)",
+            ];
+            for fragment in fragments.iter() {
+                match SearchResult::try_from(*fragment).unwrap_err() {
+                    SearchResultWarning::NameNotFound(_) => {}
+                    e => panic!("Incorrect error type raised: {:?}", e),
+                }
             }
         }
-    }
 
-    #[test]
-    fn id_not_found() {
-        let fragments = [
-            "The King's Man (Movie)",
-            "The King's Man 123124 (TV Episode)",
-            "<a href=\"/title/tta6856242/?ref_=fn_tt_tt_1\">The King's Man</a> (2021)",
-        ];
-        for fragment in fragments.iter() {
-            match SearchResult::try_from(*fragment).unwrap_err() {
-                SearchResultWarning::ImdbIdNotFound(_) => {}
-                e => panic!("Incorrect error type raised: {:?}", e),
+        #[test]
+        fn id_not_found() {
+            let fragments = [
+                "The King's Man (Movie)",
+                "The King's Man 123124 (TV Episode)",
+                "<a href=\"/title/tta6856242/?ref_=fn_tt_tt_1\">The King's Man</a> (2021)",
+            ];
+            for fragment in fragments.iter() {
+                match SearchResult::try_from(*fragment).unwrap_err() {
+                    SearchResultWarning::ImdbIdNotFound(_) => {}
+                    e => panic!("Incorrect error type raised: {:?}", e),
+                }
             }
         }
     }

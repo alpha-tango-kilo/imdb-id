@@ -1,14 +1,15 @@
 #![cfg_attr(debug_assertions, allow(dead_code, unused_imports))]
 
-use imdb_id::omdb::query_by_title;
+use imdb_id::omdb::search_by_title;
 use imdb_id::OutputFormat::*;
 use imdb_id::*;
 use std::cmp::min;
 use std::process;
 
 fn main() {
-    match query_by_title(&std::env::var("OMDB_APIKEY").unwrap(), "kings") {
-        Ok(omdb) => println!("{}", omdb),
+    let client = reqwest::blocking::Client::new();
+    match search_by_title(&std::env::var("OMDB_APIKEY").unwrap(), &client, "kings") {
+        Ok(omdb) => println!("{:#?}", omdb),
         Err(why) => eprintln!("{}", why),
     }
 

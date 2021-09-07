@@ -1,14 +1,13 @@
 use crate::RunError::InvalidYearRange;
-use crate::{Result, SearchResult};
+use crate::{Result, SearchResult, Year};
 use clap::ArgMatches;
-use std::mem;
-use std::ops::RangeInclusive;
+use std::str::FromStr;
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(Eq, PartialEq))]
 pub struct Filters {
     genres: Vec<String>,
-    years: Option<RangeInclusive<u16>>,
+    years: Option<Year>,
 }
 
 impl Filters {
@@ -19,49 +18,17 @@ impl Filters {
         }
 
         let years = match clap_matches.value_of("filter_year") {
-            Some(year_str) => Some(Filters::year_range_parse(year_str)?),
+            Some(year_str) => Some(Year::from_str(year_str).map_err(|e| InvalidYearRange(e))?),
             None => None,
         };
 
         Ok(Filters { genres, years })
     }
 
-    fn year_range_parse(year_str: &str) -> Result<RangeInclusive<u16>> {
-        let mut start = u16::MIN;
-        let mut end = u16::MAX;
-        // e.g. -2021
-        if year_str.starts_with('-') {
-            end = year_str[1..].parse().map_err(|e| InvalidYearRange(e))?;
-        // e.g. 1999-
-        } else if year_str.ends_with('-') {
-            start = year_str[..year_str.len() - 1]
-                .parse()
-                .map_err(|e| InvalidYearRange(e))?;
-        } else {
-            match year_str.split_once('-') {
-                // e.g. 1999 - 2021
-                Some((s, e)) => {
-                    start = s.parse().map_err(|e| InvalidYearRange(e))?;
-                    end = e.parse().map_err(|e| InvalidYearRange(e))?;
-                    if start > end {
-                        // User is rather stupid, let's save them
-                        mem::swap(&mut start, &mut end);
-                    }
-                }
-                // e.g. 2010
-                None => {
-                    let n = year_str.parse().map_err(|e| InvalidYearRange(e))?;
-                    start = n;
-                    end = n;
-                }
-            }
-        }
-        Ok(start..=end)
-    }
-
     pub fn allows(&self, search_result: &SearchResult) -> bool {
         let year_matches = match (&self.years, search_result.year) {
-            (Some(range), Some(y)) => range.contains(&y),
+            (Some(Year::Single(a)), Some(b)) => a == &b,
+            (Some(Year::Range(range)), Some(y)) => range.contains(&y),
             _ => true,
         };
         let genre_matches = self.genres.is_empty()
@@ -86,7 +53,7 @@ impl Default for Filters {
 #[cfg(test)]
 mod unit_tests {
     mod creation {
-        use crate::{Filters, RuntimeConfig};
+        use crate::{Filters, RuntimeConfig, Year::*};
 
         #[test]
         fn genre() {
@@ -128,7 +95,7 @@ mod unit_tests {
                 filters,
                 Filters {
                     genres: vec![],
-                    years: Some(1980..=1980),
+                    years: Some(Single(1980)),
                 }
             );
 
@@ -141,7 +108,7 @@ mod unit_tests {
                 filters,
                 Filters {
                     genres: vec![],
-                    years: Some(1980..=2010),
+                    years: Some(Range(1980..=2010)),
                 }
             );
 
@@ -154,7 +121,7 @@ mod unit_tests {
                 filters,
                 Filters {
                     genres: vec![],
-                    years: Some(1980..=u16::MAX),
+                    years: Some(Range(1980..=u16::MAX)),
                 }
             );
 
@@ -167,7 +134,7 @@ mod unit_tests {
                 filters,
                 Filters {
                     genres: vec![],
-                    years: Some(u16::MIN..=2010),
+                    years: Some(Range(u16::MIN..=2010)),
                 }
             );
         }
@@ -183,7 +150,7 @@ mod unit_tests {
                 filters,
                 Filters {
                     genres: vec![],
-                    years: Some(1980..=2010),
+                    years: Some(Range(1980..=2010)),
                 }
             );
         }
@@ -206,14 +173,14 @@ mod unit_tests {
                 filters,
                 Filters {
                     genres: vec!["Movie".into(), "Video".into()],
-                    years: Some(1980..=2010),
+                    years: Some(Range(1980..=2010)),
                 }
             );
         }
     }
 
     mod filtering {
-        use crate::{Filters, SearchResult};
+        use crate::{Filters, SearchResult, Year::*};
         use lazy_regex::Lazy;
 
         static SEARCH_RESULTS: Lazy<[SearchResult; 10]> = Lazy::new(|| {
@@ -362,7 +329,7 @@ mod unit_tests {
         fn years() {
             let test = Filters {
                 genres: vec![],
-                years: Some(2020..=u16::MAX),
+                years: Some(Range(2020..=u16::MAX)),
             };
             let results = [
                 false, true, false, false, false, false, false, false, true, false,
@@ -371,7 +338,7 @@ mod unit_tests {
 
             let test = Filters {
                 genres: vec![],
-                years: Some(1950..=2010),
+                years: Some(Range(1950..=2010)),
             };
             let results = [
                 false, false, false, false, false, false, true, true, false, false,
@@ -383,7 +350,7 @@ mod unit_tests {
         fn mixed() {
             let test = Filters {
                 genres: vec!["Movie".into()],
-                years: Some(1950..=2010),
+                years: Some(Range(1950..=2010)),
             };
             let results = [
                 false, false, false, false, false, false, true, true, false, false,
@@ -392,7 +359,7 @@ mod unit_tests {
 
             let test = Filters {
                 genres: vec!["Movie".into(), "TV Episode".into()],
-                years: Some(2010..=u16::MAX),
+                years: Some(Range(2010..=u16::MAX)),
             };
             let results = [
                 true, true, true, false, false, false, true, false, true, false,

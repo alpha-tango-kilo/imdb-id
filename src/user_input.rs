@@ -123,3 +123,5 @@ impl<'a> Debug for Pager<'a> {
         write!(f, "Page index: {}\n", self.page_index)
     }
 }
+
+// TODO: test?
