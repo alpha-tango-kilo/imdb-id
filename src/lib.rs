@@ -63,6 +63,10 @@ pub enum Year {
     // TODO: add Start/End variants?
 }
 
+impl Year {
+    const SEPARATORS: [char; 2] = ['-', '–'];
+}
+
 impl FromStr for Year {
     type Err = ParseIntError;
 
@@ -72,13 +76,13 @@ impl FromStr for Year {
         let mut start = u16::MIN;
         let mut end = u16::MAX;
         // e.g. -2021
-        if year_str.starts_with('-') {
+        if year_str.starts_with(&Year::SEPARATORS[..]) {
             end = year_str[1..].parse()?;
             // e.g. 1999-
-        } else if year_str.ends_with('-') {
+        } else if year_str.ends_with(&Year::SEPARATORS[..]) {
             start = year_str[..year_str.len() - 1].parse()?;
         } else {
-            match year_str.split_once(&['-', '–'][..]) {
+            match year_str.split_once(&Year::SEPARATORS[..]) {
                 // e.g. 1999 - 2021
                 Some((s, e)) => {
                     start = s.parse()?;
