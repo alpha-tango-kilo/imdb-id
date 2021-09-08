@@ -54,7 +54,6 @@ pub fn request_and_scrape(search_term: &str) -> Result<HtmlFragments> {
     Ok(fragments)
 }
 
-// TODO: unit test
 #[derive(Debug)]
 #[cfg_attr(test, derive(Eq, PartialEq))]
 pub enum Year {
@@ -375,5 +374,37 @@ mod search_result {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod year_unit_tests {
+    use super::Year::{self, *};
+    use std::str::FromStr;
+
+    const STR_INPUTS: [&str; 6] = [
+        "1999",
+        "-1999",
+        "1999-",
+        "1920-1925",
+        "1000-800",
+        "2020–2021"
+    ];
+
+    const EXPECTED: [Year; 6] = [
+        Single(1999),
+        Range(u16::MIN..=1999),
+        Range(1999..=u16::MAX),
+        Range(1920..=1925),
+        Range(800..=1000),
+        Range(2020..=2021),
+    ];
+
+    #[test]
+    fn from_str() {
+        STR_INPUTS.iter()
+            .map(|s| Year::from_str(s).expect("Year should have parsed"))
+            .zip(EXPECTED.iter())
+            .for_each(|(a, b)| assert_eq!(a, *b));
     }
 }
