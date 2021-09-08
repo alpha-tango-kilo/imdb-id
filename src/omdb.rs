@@ -1,53 +1,62 @@
 use crate::{Result, RunError, Year};
 use reqwest::blocking::{Client, RequestBuilder};
 use serde::de::{DeserializeOwned, Error};
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::fmt::{self, Debug};
 use std::str::FromStr;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+// When serialising, just give the list of results
+#[serde(into = "Vec<SearchResult>")]
 pub struct SearchResults {
-    #[serde(rename = "Search")]
+    #[serde(rename(deserialize = "Search"))]
     pub entries: Vec<SearchResult>,
-    #[serde(rename = "totalResults", deserialize_with = "de_stringified")]
+    #[serde(rename(deserialize = "totalResults"), deserialize_with = "de_stringified")]
     total_results: u32,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+// For serialisation
+impl Into<Vec<SearchResult>> for SearchResults {
+    fn into(self) -> Vec<SearchResult> {
+        self.entries
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all(deserialize = "PascalCase"))]
 pub struct SearchResult {
     pub title: String,
     pub year: Year,
-    #[serde(rename = "imdbID")]
+    #[serde(rename(deserialize = "imdbID"))]
     pub imdb_id: String,
-    #[serde(rename = "Type")]
+    #[serde(rename(deserialize = "Type"))]
     pub media_type: String,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all(deserialize = "PascalCase"))]
 pub struct Entry {
     pub title: String,
     pub year: Year,
-    #[serde(rename = "Rated")]
+    #[serde(rename(deserialize = "Rated"))]
     pub rating: String,
     pub runtime: String,
-    #[serde(rename = "Genre", deserialize_with = "de_comma_list")]
+    #[serde(rename(deserialize = "Genre"), deserialize_with = "de_comma_list")]
     pub genres: Vec<String>,
-    #[serde(rename = "Director", deserialize_with = "de_comma_list")]
+    #[serde(rename(deserialize = "Director"), deserialize_with = "de_comma_list")]
     pub directors: Vec<String>,
-    #[serde(rename = "Writer", deserialize_with = "de_comma_list")]
+    #[serde(rename(deserialize = "Writer"), deserialize_with = "de_comma_list")]
     pub writers: Vec<String>,
     #[serde(deserialize_with = "de_comma_list")]
     pub actors: Vec<String>,
     pub plot: String,
     pub language: String,
     pub country: String,
-    #[serde(rename = "imdbID")]
+    #[serde(rename(deserialize = "imdbID"))]
     pub imdb_id: String,
-    #[serde(rename = "imdbRating", deserialize_with = "de_stringified")]
+    #[serde(rename(deserialize = "imdbRating"), deserialize_with = "de_stringified")]
     pub imdb_rating: f32,
-    #[serde(rename = "Type")]
+    #[serde(rename(deserialize = "Type"))]
     pub media_type: String,
 }
 

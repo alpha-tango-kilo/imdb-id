@@ -14,7 +14,7 @@ use lazy_regex::Lazy;
 use reqwest::blocking as reqwest;
 use scraper::{Html, Selector};
 use serde::de::Error;
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::fmt;
 use std::num::ParseIntError;
 use std::ops::RangeInclusive;
@@ -54,7 +54,9 @@ pub fn request_and_scrape(search_term: &str) -> Result<HtmlFragments> {
     Ok(fragments)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize)]
+// Serialise using Display impl by using it in impl Into<String>
+#[serde(into = "String")]
 #[cfg_attr(test, derive(Eq, PartialEq))]
 pub enum Year {
     Single(u16),
@@ -110,6 +112,13 @@ impl<'de> Deserialize<'de> for Year {
         let s = String::deserialize(d)?;
         Year::from_str(&s)
             .map_err(|e| D::Error::custom(format!("Could not parse field as year ({:?})", e)))
+    }
+}
+
+// Used with serialisation
+impl Into<String> for Year {
+    fn into(self) -> String {
+        self.to_string()
     }
 }
 
