@@ -11,8 +11,11 @@ use std::str::FromStr;
 pub struct SearchResults {
     #[serde(rename(deserialize = "Search"))]
     pub entries: Vec<SearchResult>,
-    #[serde(rename(deserialize = "totalResults"), deserialize_with = "de_stringified")]
-    total_results: u32,
+    #[serde(
+        rename(deserialize = "totalResults"),
+        deserialize_with = "de_stringified"
+    )]
+    pub total_results: u32,
 }
 
 // For serialisation
@@ -31,6 +34,12 @@ pub struct SearchResult {
     pub imdb_id: String,
     #[serde(rename(deserialize = "Type"))]
     pub media_type: String,
+}
+
+impl fmt::Display for SearchResult {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} ({}, {})", self.title, self.media_type, self.year)
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -54,7 +63,10 @@ pub struct Entry {
     pub country: String,
     #[serde(rename(deserialize = "imdbID"))]
     pub imdb_id: String,
-    #[serde(rename(deserialize = "imdbRating"), deserialize_with = "de_stringified")]
+    #[serde(
+        rename(deserialize = "imdbRating"),
+        deserialize_with = "de_stringified"
+    )]
     pub imdb_rating: f32,
     #[serde(rename(deserialize = "Type"))]
     pub media_type: String,
@@ -102,6 +114,16 @@ where
 }
 
 /*
+About using reqwest::blocking;
+From the tokio website, "When not to use Tokio"
+  - Sending a single web request. The place where Tokio gives you an advantage
+    is when you need to do many things at the same time. If you need to use a
+    library intended for asynchronous Rust such as reqwest, but you don't need
+    to do a lot of things at once, you should prefer the blocking version of
+    that library, as it will make your project simpler. Using Tokio will still
+    work, of course, but provides no real advantage over the blocking API
+- https://tokio.rs/tokio/tutorial
+
 A note about the json feature of reqwest:
 While it does seem like it'd be useful, in reality it prevents access to the raw JSON response
 if the deserialisation fails. It also means I can't as specifically classify the type of
@@ -144,7 +166,7 @@ where
 #[cfg(test)]
 mod unit_tests {
     use super::*;
-    use lazy_regex::Lazy;
+    use once_cell::unsync::Lazy;
 
     const INPUTS: [&str; 4] = [
         // Up

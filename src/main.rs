@@ -1,56 +1,48 @@
-#![cfg_attr(debug_assertions, allow(dead_code, unused_imports))]
-
-use imdb_id::omdb::search_by_title;
 use imdb_id::OutputFormat::*;
 use imdb_id::*;
 use std::cmp::min;
 use std::process;
 
 fn main() {
-    let client = reqwest::blocking::Client::new();
-    match search_by_title(&std::env::var("OMDB_APIKEY").unwrap(), &client, "kings") {
-        Ok(omdb) => println!("{:#?}", omdb),
-        Err(why) => eprintln!("{}", why),
-    }
-
-    /*if let Err(why) = app() {
+    if let Err(why) = app() {
         eprintln!("Error: {}", why);
         process::exit(why.error_code());
-    }*/
+    }
 }
 
 fn app() -> Result<()> {
     let config = RuntimeConfig::new()?;
+    let api_key = std::env::var("OMDB_APIKEY").expect("OMDB_APIKEY must be set!");
+    let client = reqwest::blocking::Client::new();
 
-    let fragments = request_and_scrape(&config.search_term)?;
-    let search_results = SearchResult::try_many_lossy(fragments, &config.filters);
+    let search_results = omdb::search_by_title(&api_key, &client, &config.search_term)?;
 
     match config.format {
         Human => {
-            if search_results.len() == 0 {
+            if search_results.entries.len() == 0 {
                 return Err(RunError::NoSearchResults);
-            } else if !config.interactive || search_results.len() == 1 {
-                let search_result = search_results.get(0).unwrap();
+            } else if !config.interactive || search_results.entries.len() == 1 {
+                let search_result = search_results.entries.get(0).unwrap();
                 if config.interactive {
                     eprintln!("Only one result; {}", search_result);
                 }
-                println!("{}", search_result.id);
+                println!("{}", search_result.imdb_id);
             } else {
                 // Guaranteed to be interactive
-                let mut pager = Pager::new(&search_results, &config);
+                let mut pager = Pager::new(&search_results.entries, &config);
                 let selected = pager.ask()?;
-                println!("{}", selected.id);
+                println!("{}", selected.imdb_id);
             }
         }
         Json => {
-            let end_index = min(config.number_of_results, search_results.len());
-            let json = serde_json::to_string_pretty(&search_results[..end_index])?;
+            let end_index = min(config.number_of_results, search_results.entries.len());
+            let json = serde_json::to_string_pretty(&search_results.entries[..end_index])?;
             println!("{}", json);
         }
         #[cfg(feature = "yaml")]
         Yaml => {
-            let end_index = min(config.number_of_results, search_results.len());
-            let yaml = serde_yaml::to_string(&search_results[..end_index])?;
+            let end_index = min(config.number_of_results, search_results.entries.len());
+            let yaml = serde_yaml::to_string(&search_results.entries[..end_index])?;
             println!("{}", yaml);
         }
     }

@@ -6,7 +6,7 @@ use crossterm::ExecutableCommand;
 use requestty::question::Choice;
 use requestty::Question;
 use std::cmp::min;
-use std::fmt::{Debug, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 use std::io::stdout;
 use std::ops::Rem;
 
@@ -22,16 +22,19 @@ pub fn get_search_term() -> Result<String> {
     Ok(requestty::prompt_one(question)?.try_into_string().unwrap())
 }
 
-pub struct Pager<'a> {
+pub struct Pager<'a, E> {
     choices: Vec<Choice<String>>,
-    search_results: &'a Vec<SearchResult>,
+    entries: &'a Vec<E>,
     page_size: usize,
     page_index: usize,
     max_page_index: usize,
 }
 
-impl<'a> Pager<'a> {
-    pub fn new(search_results: &'a Vec<SearchResult>, config: &RuntimeConfig) -> Self {
+impl<'a, E> Pager<'a, E>
+where
+    E: Display,
+{
+    pub fn new(search_results: &'a Vec<E>, config: &RuntimeConfig) -> Self {
         let page_size = min(config.number_of_results, PAGE_MAX);
 
         let choices = search_results
@@ -45,14 +48,14 @@ impl<'a> Pager<'a> {
         }
         Pager {
             choices,
-            search_results,
+            entries: search_results,
             page_size,
             page_index: 0,
             max_page_index,
         }
     }
 
-    pub fn ask(&mut self) -> Result<&'a SearchResult> {
+    pub fn ask(&mut self) -> Result<&'a E> {
         let mut stdout = stdout();
         loop {
             let start_index = self.page_index * self.page_size;
@@ -87,10 +90,7 @@ impl<'a> Pager<'a> {
             let list_item = answer.as_list_item().unwrap();
             if list_item.index < results_being_shown {
                 // Chose one of the search results
-                return Ok(self
-                    .search_results
-                    .get(start_index + list_item.index)
-                    .unwrap());
+                return Ok(self.entries.get(start_index + list_item.index).unwrap());
             } else {
                 // Work out which other option has been chosen
                 stdout
@@ -115,9 +115,9 @@ impl<'a> Pager<'a> {
     }
 }
 
-impl<'a> Debug for Pager<'a> {
+impl<'a, E> Debug for Pager<'a, E> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Search results: {}\n", self.search_results.len())?;
+        write!(f, "Search results: {}\n", self.entries.len())?;
         write!(f, "Page size: {}\n", self.page_size)?;
         write!(f, "Number of pages: {}\n", self.max_page_index + 1)?;
         write!(f, "Page index: {}\n", self.page_index)
