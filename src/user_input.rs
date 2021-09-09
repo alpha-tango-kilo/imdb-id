@@ -24,7 +24,7 @@ pub fn get_search_term() -> Result<String> {
 
 pub struct Pager<'a, E> {
     choices: Vec<Choice<String>>,
-    entries: &'a Vec<E>,
+    entries: &'a [E],
     page_size: usize,
     page_index: usize,
     max_page_index: usize,
@@ -34,7 +34,7 @@ impl<'a, E> Pager<'a, E>
 where
     E: Display,
 {
-    pub fn new(search_results: &'a Vec<E>, config: &RuntimeConfig) -> Self {
+    pub fn new(search_results: &'a [E], config: &RuntimeConfig) -> Self {
         let page_size = min(config.number_of_results, PAGE_MAX);
 
         let choices = search_results
