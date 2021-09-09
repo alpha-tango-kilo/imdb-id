@@ -12,9 +12,12 @@ pub use user_input::Pager;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::fmt;
+use std::iter::FromIterator;
 use std::num::ParseIntError;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
+// Has to use different name or re-export of errors::Result wouldn't work
+use std::result::Result as StdResult;
 
 #[derive(Debug, Clone, Serialize)]
 // Serialise using Display impl by using it in impl Into<String>
@@ -33,17 +36,23 @@ impl Year {
 impl FromStr for Year {
     type Err = ParseIntError;
 
-    fn from_str(year_str: &str) -> std::result::Result<Self, Self::Err> {
+    // WARNING: not all separators are one byte, this must not be assumed!
+    fn from_str(year_str: &str) -> StdResult<Self, Self::Err> {
         use std::mem;
 
         let mut start = u16::MIN;
         let mut end = u16::MAX;
         // e.g. -2021
         if year_str.starts_with(&Year::SEPARATORS[..]) {
-            end = year_str[1..].parse()?;
+            end = year_str.chars().skip(1).collect::<String>().parse()?;
             // e.g. 1999-
         } else if year_str.ends_with(&Year::SEPARATORS[..]) {
-            start = year_str[..year_str.len() - 1].parse()?;
+            // Get list of chars
+            let chars = year_str.chars().collect::<Vec<_>>();
+            // Remove last one (the dash)
+            let chars = &chars[..chars.len() - 1];
+            // Create String from iterator so we can parse
+            start = String::from_iter(chars).parse()?;
         } else {
             match year_str.split_once(&Year::SEPARATORS[..]) {
                 // e.g. 1999 - 2021
@@ -67,7 +76,7 @@ impl FromStr for Year {
 }
 
 impl<'de> Deserialize<'de> for Year {
-    fn deserialize<D>(d: D) -> std::result::Result<Self, D::Error>
+    fn deserialize<D>(d: D) -> StdResult<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -102,7 +111,7 @@ mod year_unit_tests {
     const STR_INPUTS: [&str; 6] = [
         "1999",
         "-1999",
-        "1999-",
+        "1999–",
         "1920-1925",
         "1000-800",
         "2020–2021",
