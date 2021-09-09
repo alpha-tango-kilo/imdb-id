@@ -1,6 +1,4 @@
 use crate::{user_input, Filters, Result, RunError};
-#[cfg(not(test))]
-use atty::Stream;
 use clap::{App, AppSettings, Arg, ArgMatches};
 use OutputFormat::*;
 
@@ -115,26 +113,26 @@ impl RuntimeConfig {
             }
         };
 
-        // Note: atty checks are disabled for testing
-        #[cfg(not(test))]
-        let interactive = !clap_matches.is_present("non-interactive")
-            && atty::is(Stream::Stdout)
-            && atty::is(Stream::Stdin);
-        #[cfg(test)]
-        let interactive = !clap_matches.is_present("non-interactive");
+        let format = match clap_matches.value_of("format") {
+            Some(s) => OutputFormat::try_from(s)?,
+            None => RuntimeConfig::default().format,
+        };
 
-        let number_of_results = if interactive {
+        let mut interactive = !clap_matches.is_present("non-interactive");
+        // atty checks are disabled for testing
+        if cfg!(not(test)) {
+            use atty::Stream;
+            interactive &= atty::is(Stream::Stdout);
+            interactive &= atty::is(Stream::Stdin);
+        }
+
+        let number_of_results = if interactive || format != Human {
             match clap_matches.value_of("number_of_results") {
                 Some(n) => n.parse().unwrap(),
                 None => RuntimeConfig::default().number_of_results,
             }
         } else {
             1
-        };
-
-        let format = match clap_matches.value_of("format") {
-            Some(s) => OutputFormat::try_from(s)?,
-            None => RuntimeConfig::default().format,
         };
 
         Ok(RuntimeConfig {
@@ -159,7 +157,7 @@ impl Default for RuntimeConfig {
     }
 }
 
-#[cfg_attr(test, derive(Debug, Eq, PartialEq))]
+#[derive(Debug, Eq, PartialEq)]
 pub enum OutputFormat {
     Human,
     Json,
