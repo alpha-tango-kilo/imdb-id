@@ -185,73 +185,86 @@ mod unit_tests {
         }
     }
 
-    // TODO: update to use new SearchResult
-    /*
     mod filtering {
-        use crate::{Filters, SearchResult, Year::*};
-        use once_cell::unsync::Lazy;
+        use crate::omdb::SearchResult;
+        use crate::{Filters, Year};
+        use once_cell::sync::Lazy;
 
-        static SEARCH_RESULTS: Lazy<[SearchResult; 10]> = Lazy::new(|| {
+        const TEST_DATA_SIZE: usize = 12;
+
+        static SEARCH_RESULTS: Lazy<[SearchResult; TEST_DATA_SIZE]> = Lazy::new(|| {
             [
                 SearchResult {
-                    name: "Kingsman: The Secret Service".into(),
-                    id: "tt2802144".into(),
-                    genre: "Movie".into(),
-                    year: Some(2014),
+                    title: "Kingsman: The Secret Service".into(),
+                    imdb_id: "tt2802144".into(),
+                    media_type: "Movie".into(),
+                    year: Year::Single(2014),
                 },
                 SearchResult {
-                    name: "The King's Man".into(),
-                    id: "tt6856242".into(),
-                    genre: "Movie".into(),
-                    year: Some(2021),
+                    title: "The King's Man".into(),
+                    imdb_id: "tt6856242".into(),
+                    media_type: "Movie".into(),
+                    year: Year::Single(2021),
                 },
                 SearchResult {
-                    name: "Kingsman: The Golden Circle".into(),
-                    id: "tt4649466".into(),
-                    genre: "Movie".into(),
-                    year: Some(2017),
+                    title: "Kingsman: The Golden Circle".into(),
+                    imdb_id: "tt4649466".into(),
+                    media_type: "Movie".into(),
+                    year: Year::Single(2017),
                 },
                 SearchResult {
-                    name: "Kingsman: The Secret Service Revealed".into(),
-                    id: "tt5026378".into(),
-                    genre: "Video".into(),
-                    year: Some(2015),
+                    title: "Kingsman: The Secret Service Revealed".into(),
+                    imdb_id: "tt5026378".into(),
+                    media_type: "Video".into(),
+                    year: Year::Single(2015),
                 },
                 SearchResult {
-                    name: "Kingsman: Inside the Golden Circle".into(),
-                    id: "tt7959890".into(),
-                    genre: "Video".into(),
-                    year: Some(2017),
+                    title: "Kingsman: Inside the Golden Circle".into(),
+                    imdb_id: "tt7959890".into(),
+                    media_type: "Video".into(),
+                    year: Year::Single(2017),
                 },
                 SearchResult {
-                    name: "Kingsman: Bespoke Lessons for Gentlemen Spies".into(),
-                    id: "tt6597836".into(),
-                    genre: "TV Series".into(),
-                    year: Some(2015),
+                    title: "Kingsman: Bespoke Lessons for Gentlemen Spies".into(),
+                    imdb_id: "tt6597836".into(),
+                    media_type: "TV Series".into(),
+                    year: Year::Single(2015),
                 },
                 SearchResult {
-                    name: "King's Man".into(),
-                    id: "tt1582211".into(),
-                    genre: "Movie".into(),
-                    year: Some(2010),
+                    title: "King's Man".into(),
+                    imdb_id: "tt1582211".into(),
+                    media_type: "Movie".into(),
+                    year: Year::Single(2010),
                 },
                 SearchResult {
-                    name: "All the King's Men".into(),
-                    id: "tt0405676".into(),
-                    genre: "Movie".into(),
-                    year: Some(2006),
+                    title: "All the King's Men".into(),
+                    imdb_id: "tt0405676".into(),
+                    media_type: "Movie".into(),
+                    year: Year::Single(2006),
                 },
                 SearchResult {
-                    name: "The Kingsman".into(),
-                    id: "tt13332408".into(),
-                    genre: "TV Episode".into(),
-                    year: Some(2020),
+                    title: "The Kingsman".into(),
+                    imdb_id: "tt13332408".into(),
+                    media_type: "TV Episode".into(),
+                    year: Year::Single(2020),
                 },
                 SearchResult {
-                    name: "All the King's Men".into(),
-                    id: "tt0041113".into(),
-                    genre: "Movie".into(),
-                    year: Some(1949),
+                    title: "All the King's Men".into(),
+                    imdb_id: "tt0041113".into(),
+                    media_type: "Movie".into(),
+                    year: Year::Single(1949),
+                },
+                SearchResult {
+                    title: "Black Mirror".into(),
+                    imdb_id: "tt2085059".into(),
+                    media_type: "Series".into(),
+                    year: Year::Range(2011..=u16::MAX),
+                },
+                SearchResult {
+                    title: "Seinfeld".into(),
+                    imdb_id: "tt0098904".into(),
+                    media_type: "Series".into(),
+                    year: Year::Range(1989..=1998),
                 },
             ]
         });
@@ -266,10 +279,10 @@ mod unit_tests {
                 genres: vec![],
                 years: None,
             };
-            assert_eq!(&get_outcomes(&empty), &[true; 10]);
+            assert_eq!(&get_outcomes(&empty), &[true; TEST_DATA_SIZE]);
 
             let default = Filters::default();
-            assert_eq!(&get_outcomes(&default), &[true; 10]);
+            assert_eq!(&get_outcomes(&default), &[true; TEST_DATA_SIZE]);
         }
 
         #[test]
@@ -279,7 +292,7 @@ mod unit_tests {
                 years: None,
             };
             let results = [
-                true, true, true, false, false, false, true, true, false, true,
+                true, true, true, false, false, false, true, true, false, true, false, false,
             ];
             assert_eq!(&get_outcomes(&test), &results);
 
@@ -288,7 +301,7 @@ mod unit_tests {
                 years: None,
             };
             let results = [
-                false, false, false, true, true, false, false, false, false, false,
+                false, false, false, true, true, false, false, false, false, false, false, false,
             ];
             assert_eq!(&get_outcomes(&test), &results);
         }
@@ -299,7 +312,9 @@ mod unit_tests {
                 genres: vec!["Movie".into(), "Video".into()],
                 years: None,
             };
-            let results = [true, true, true, true, true, false, true, true, false, true];
+            let results = [
+                true, true, true, true, true, false, true, true, false, true, false, false,
+            ];
             assert_eq!(&get_outcomes(&test), &results);
 
             let test = Filters {
@@ -307,7 +322,7 @@ mod unit_tests {
                 years: None,
             };
             let results = [
-                false, false, false, true, true, false, false, false, true, false,
+                false, false, false, true, true, false, false, false, true, false, false, false,
             ];
             assert_eq!(&get_outcomes(&test), &results);
         }
@@ -319,7 +334,7 @@ mod unit_tests {
                 years: None,
             };
             let results = [
-                true, true, true, false, false, false, true, true, false, true,
+                true, true, true, false, false, false, true, true, false, true, false, false,
             ];
             assert_eq!(&get_outcomes(&test), &results);
 
@@ -328,7 +343,7 @@ mod unit_tests {
                 years: None,
             };
             let results = [
-                false, false, false, true, true, false, false, false, false, false,
+                false, false, false, true, true, false, false, false, false, false, false, false,
             ];
             assert_eq!(&get_outcomes(&test), &results);
         }
@@ -337,19 +352,19 @@ mod unit_tests {
         fn years() {
             let test = Filters {
                 genres: vec![],
-                years: Some(Range(2020..=u16::MAX)),
+                years: Some(Year::Range(2020..=u16::MAX)),
             };
             let results = [
-                false, true, false, false, false, false, false, false, true, false,
+                false, true, false, false, false, false, false, false, true, false, true, false,
             ];
             assert_eq!(&get_outcomes(&test), &results);
 
             let test = Filters {
                 genres: vec![],
-                years: Some(Range(1950..=2010)),
+                years: Some(Year::Range(1950..=2010)),
             };
             let results = [
-                false, false, false, false, false, false, true, true, false, false,
+                false, false, false, false, false, false, true, true, false, false, false, true,
             ];
             assert_eq!(&get_outcomes(&test), &results);
         }
@@ -358,22 +373,21 @@ mod unit_tests {
         fn mixed() {
             let test = Filters {
                 genres: vec!["Movie".into()],
-                years: Some(Range(1950..=2010)),
+                years: Some(Year::Range(1950..=2010)),
             };
             let results = [
-                false, false, false, false, false, false, true, true, false, false,
+                false, false, false, false, false, false, true, true, false, false, false, false,
             ];
             assert_eq!(&get_outcomes(&test), &results);
 
             let test = Filters {
                 genres: vec!["Movie".into(), "TV Episode".into()],
-                years: Some(Range(2010..=u16::MAX)),
+                years: Some(Year::Range(2010..=u16::MAX)),
             };
             let results = [
-                true, true, true, false, false, false, true, false, true, false,
+                true, true, true, false, false, false, true, false, true, false, false, false,
             ];
             assert_eq!(&get_outcomes(&test), &results);
         }
     }
-     */
 }
