@@ -37,6 +37,12 @@ features = [
     "derive",
 ]
 
+[dependencies.smallvec]
+version = "1.6"
+features = [
+    "serde",
+]
+
 [dev-dependencies]
 once_cell = "1.8"
 

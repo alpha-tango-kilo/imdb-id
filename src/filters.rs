@@ -2,18 +2,19 @@ use crate::omdb::SearchResult;
 use crate::RunError::InvalidYearRange;
 use crate::{Result, Year};
 use clap::ArgMatches;
+use smallvec::{smallvec, SmallVec};
 use std::str::FromStr;
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(Eq, PartialEq))]
 pub struct Filters {
-    genres: Vec<String>,
+    genres: SmallVec<[String; 3]>,
     years: Option<Year>,
 }
 
 impl Filters {
     pub fn new(clap_matches: &ArgMatches) -> Result<Self> {
-        let mut genres = Vec::new();
+        let mut genres = SmallVec::new();
         if let Some(vs) = clap_matches.values_of("filter_genre") {
             vs.for_each(|s| genres.push(s.into()));
         }
@@ -50,7 +51,7 @@ impl Filters {
 impl Default for Filters {
     fn default() -> Self {
         Filters {
-            genres: vec![],
+            genres: smallvec![],
             years: None,
         }
     }
@@ -60,6 +61,7 @@ impl Default for Filters {
 mod unit_tests {
     mod creation {
         use crate::{Filters, RuntimeConfig, Year::*};
+        use smallvec::smallvec;
 
         #[test]
         fn genre() {
@@ -71,7 +73,7 @@ mod unit_tests {
             assert_eq!(
                 filters,
                 Filters {
-                    genres: vec!["TV Episode".into()],
+                    genres: smallvec!["TV Episode".into()],
                     years: None,
                 }
             );
@@ -84,7 +86,7 @@ mod unit_tests {
             assert_eq!(
                 filters,
                 Filters {
-                    genres: vec!["TV Episode".into(), "Movie".into()],
+                    genres: smallvec!["TV Episode".into(), "Movie".into()],
                     years: None,
                 }
             );
@@ -100,7 +102,7 @@ mod unit_tests {
             assert_eq!(
                 filters,
                 Filters {
-                    genres: vec![],
+                    genres: smallvec![],
                     years: Some(Single(1980)),
                 }
             );
@@ -113,7 +115,7 @@ mod unit_tests {
             assert_eq!(
                 filters,
                 Filters {
-                    genres: vec![],
+                    genres: smallvec![],
                     years: Some(Range(1980..=2010)),
                 }
             );
@@ -126,7 +128,7 @@ mod unit_tests {
             assert_eq!(
                 filters,
                 Filters {
-                    genres: vec![],
+                    genres: smallvec![],
                     years: Some(Range(1980..=u16::MAX)),
                 }
             );
@@ -139,7 +141,7 @@ mod unit_tests {
             assert_eq!(
                 filters,
                 Filters {
-                    genres: vec![],
+                    genres: smallvec![],
                     years: Some(Range(u16::MIN..=2010)),
                 }
             );
@@ -155,7 +157,7 @@ mod unit_tests {
             assert_eq!(
                 filters,
                 Filters {
-                    genres: vec![],
+                    genres: smallvec![],
                     years: Some(Range(1980..=2010)),
                 }
             );
@@ -178,7 +180,7 @@ mod unit_tests {
             assert_eq!(
                 filters,
                 Filters {
-                    genres: vec!["Movie".into(), "Video".into()],
+                    genres: smallvec!["Movie".into(), "Video".into()],
                     years: Some(Range(1980..=2010)),
                 }
             );
@@ -189,6 +191,7 @@ mod unit_tests {
         use crate::omdb::SearchResult;
         use crate::{Filters, Year};
         use once_cell::sync::Lazy;
+        use smallvec::smallvec;
 
         const TEST_DATA_SIZE: usize = 12;
 
@@ -276,7 +279,7 @@ mod unit_tests {
         #[test]
         fn unfiltered() {
             let empty = Filters {
-                genres: vec![],
+                genres: smallvec![],
                 years: None,
             };
             assert_eq!(&get_outcomes(&empty), &[true; TEST_DATA_SIZE]);
@@ -288,7 +291,7 @@ mod unit_tests {
         #[test]
         fn genre_single() {
             let test = Filters {
-                genres: vec!["Movie".into()],
+                genres: smallvec!["Movie".into()],
                 years: None,
             };
             let results = [
@@ -297,7 +300,7 @@ mod unit_tests {
             assert_eq!(&get_outcomes(&test), &results);
 
             let test = Filters {
-                genres: vec!["Video".into()],
+                genres: smallvec!["Video".into()],
                 years: None,
             };
             let results = [
@@ -309,7 +312,7 @@ mod unit_tests {
         #[test]
         fn genre_multiple() {
             let test = Filters {
-                genres: vec!["Movie".into(), "Video".into()],
+                genres: smallvec!["Movie".into(), "Video".into()],
                 years: None,
             };
             let results = [
@@ -318,7 +321,7 @@ mod unit_tests {
             assert_eq!(&get_outcomes(&test), &results);
 
             let test = Filters {
-                genres: vec!["Video".into(), "TV Episode".into()],
+                genres: smallvec!["Video".into(), "TV Episode".into()],
                 years: None,
             };
             let results = [
@@ -330,7 +333,7 @@ mod unit_tests {
         #[test]
         fn genre_case_insensitive() {
             let test = Filters {
-                genres: vec!["movie".into()],
+                genres: smallvec!["movie".into()],
                 years: None,
             };
             let results = [
@@ -339,7 +342,7 @@ mod unit_tests {
             assert_eq!(&get_outcomes(&test), &results);
 
             let test = Filters {
-                genres: vec!["video".into()],
+                genres: smallvec!["video".into()],
                 years: None,
             };
             let results = [
@@ -351,7 +354,7 @@ mod unit_tests {
         #[test]
         fn years() {
             let test = Filters {
-                genres: vec![],
+                genres: smallvec![],
                 years: Some(Year::Range(2020..=u16::MAX)),
             };
             let results = [
@@ -360,7 +363,7 @@ mod unit_tests {
             assert_eq!(&get_outcomes(&test), &results);
 
             let test = Filters {
-                genres: vec![],
+                genres: smallvec![],
                 years: Some(Year::Range(1950..=2010)),
             };
             let results = [
@@ -372,7 +375,7 @@ mod unit_tests {
         #[test]
         fn mixed() {
             let test = Filters {
-                genres: vec!["Movie".into()],
+                genres: smallvec!["Movie".into()],
                 years: Some(Year::Range(1950..=2010)),
             };
             let results = [
@@ -381,7 +384,7 @@ mod unit_tests {
             assert_eq!(&get_outcomes(&test), &results);
 
             let test = Filters {
-                genres: vec!["Movie".into(), "TV Episode".into()],
+                genres: smallvec!["Movie".into(), "TV Episode".into()],
                 years: Some(Year::Range(2010..=u16::MAX)),
             };
             let results = [

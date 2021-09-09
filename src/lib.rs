@@ -17,6 +17,7 @@ use std::num::ParseIntError;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
 // Has to use different name or re-export of errors::Result wouldn't work
+use smallvec::SmallVec;
 use std::result::Result as StdResult;
 
 #[derive(Debug, Clone, Serialize)]
@@ -48,7 +49,7 @@ impl FromStr for Year {
             // e.g. 1999-
         } else if year_str.ends_with(&Year::SEPARATORS[..]) {
             // Get list of chars
-            let chars = year_str.chars().collect::<Vec<_>>();
+            let chars = year_str.chars().collect::<SmallVec<[char; 8]>>();
             // Remove last one (the dash)
             let chars = &chars[..chars.len() - 1];
             // Create String from iterator so we can parse

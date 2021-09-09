@@ -2,6 +2,7 @@ use crate::{Result, RunError, Year};
 use reqwest::blocking::{Client, RequestBuilder};
 use serde::de::{DeserializeOwned, Error};
 use serde::{Deserialize, Deserializer, Serialize};
+use smallvec::SmallVec;
 use std::fmt::{self, Debug};
 use std::str::FromStr;
 
@@ -51,13 +52,13 @@ pub struct Entry {
     pub rating: String,
     pub runtime: String,
     #[serde(rename(deserialize = "Genre"), deserialize_with = "de_comma_list")]
-    pub genres: Vec<String>,
+    pub genres: SmallVec<[String; 3]>,
     #[serde(rename(deserialize = "Director"), deserialize_with = "de_comma_list")]
-    pub directors: Vec<String>,
+    pub directors: SmallVec<[String; 3]>,
     #[serde(rename(deserialize = "Writer"), deserialize_with = "de_comma_list")]
-    pub writers: Vec<String>,
+    pub writers: SmallVec<[String; 3]>,
     #[serde(deserialize_with = "de_comma_list")]
-    pub actors: Vec<String>,
+    pub actors: SmallVec<[String; 3]>,
     pub plot: String,
     pub language: String,
     pub country: String,
@@ -103,9 +104,9 @@ where
 
 /*
 Lists in OMDb are given like "Pete Docter, Bob Peterson, Tom McCarthy"
-This helper throws that into a Vec<String>
+This helper throws that into a SmallVec<[String; 3]>
  */
-fn de_comma_list<'de, D>(d: D) -> std::result::Result<Vec<String>, D::Error>
+fn de_comma_list<'de, D>(d: D) -> std::result::Result<SmallVec<[String; 3]>, D::Error>
 where
     D: Deserializer<'de>,
 {
