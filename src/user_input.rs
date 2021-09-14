@@ -1,3 +1,4 @@
+use crate::omdb::test_api_key;
 use crate::*;
 use crossterm::cursor::MoveToPreviousLine;
 use crossterm::terminal::Clear;
@@ -14,6 +15,14 @@ const PAGE_MAX: usize = 25;
 const NEXT_PAGE_LABEL: &str = "Next page";
 const PREV_PAGE_LABEL: &str = "Previous page";
 const GIVE_UP_LABEL: &str = "I can't see what I'm looking for";
+
+pub fn get_api_key(client: &reqwest::Client) -> Result<String> {
+    let question = Question::input("api_key")
+        .message("Please enter in your OMDb API key. If you need to, visit their website to get one (https://www.omdbapi.com/apikey.aspx)")
+        .validate(|api_key, _| test_api_key(api_key, client))
+        .build();
+    Ok(requestty::prompt_one(question)?.try_into_string().unwrap())
+}
 
 pub fn get_search_term() -> Result<String> {
     let question = Question::input("search_term")

@@ -12,8 +12,11 @@ fn main() {
 
 fn app() -> Result<()> {
     let config = RuntimeConfig::new()?;
-    let api_key = std::env::var("OMDB_APIKEY").expect("OMDB_APIKEY must be set!");
-    let client = reqwest::blocking::Client::new();
+    let client = reqwest::Client::new();
+    let api_key = match std::env::var("OMDB_APIKEY") {
+        Ok(key) => key,
+        Err(_) => get_api_key(&client)?,
+    };
 
     let search_results = omdb::search_by_title(&api_key, &client, &config.search_term)?;
 

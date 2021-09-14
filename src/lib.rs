@@ -7,7 +7,8 @@ mod user_input;
 pub use clap_wrap::*;
 pub use errors::*;
 pub use filters::*;
-pub use user_input::Pager;
+pub use reqwest::blocking as reqwest;
+pub use user_input::{get_api_key, Pager};
 
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize};

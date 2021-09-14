@@ -149,6 +149,23 @@ pub fn search_by_title(api_key: &str, client: &Client, title: &str) -> Result<Se
     send_request_deserialise_response(request)
 }
 
+pub fn test_api_key(api_key: &str, client: &Client) -> std::result::Result<(), String> {
+    let status = client
+        .get("https://www.omdbapi.com/")
+        .query(&[("apikey", api_key)])
+        .send()
+        .map_err(|e| e.to_string())?
+        .status();
+
+    if status.eq(&200) {
+        Ok(())
+    } else if status.eq(&401) {
+        Err(String::from("Unauthorised API key"))
+    } else {
+        Err(format!("Unexpected response: {}", status))
+    }
+}
+
 fn build_query(client: &Client, api_key: &str) -> RequestBuilder {
     client
         .get("https://www.omdbapi.com/")
