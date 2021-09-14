@@ -216,7 +216,7 @@ mod unit_tests {
             .iter()
             .map(|entry| &entry.genres)
             .zip(genres.iter())
-            .for_each(|(actual, expected)| assert_eq!(actual, expected));
+            .for_each(|(actual, expected)| assert_eq!(actual.as_slice(), expected.as_slice()));
 
         let directors = [
             vec!["Pete Docter", "Bob Peterson"],
@@ -228,7 +228,7 @@ mod unit_tests {
             .iter()
             .map(|entry| &entry.directors)
             .zip(directors.iter())
-            .for_each(|(actual, expected)| assert_eq!(actual, expected));
+            .for_each(|(actual, expected)| assert_eq!(actual.as_slice(), expected.as_slice()));
 
         let writers = [
             vec!["Pete Docter", "Bob Peterson", "Tom McCarthy"],
@@ -240,7 +240,7 @@ mod unit_tests {
             .iter()
             .map(|entry| &entry.writers)
             .zip(writers.iter())
-            .for_each(|(actual, expected)| assert_eq!(actual, expected));
+            .for_each(|(actual, expected)| assert_eq!(actual.as_slice(), expected.as_slice()));
 
         let actors = [
             vec!["Edward Asner", "Jordan Nagai", "John Ratzenberger"],
@@ -252,6 +252,6 @@ mod unit_tests {
             .iter()
             .map(|entry| &entry.actors)
             .zip(actors.iter())
-            .for_each(|(actual, expected)| assert_eq!(actual, expected));
+            .for_each(|(actual, expected)| assert_eq!(actual.as_slice(), expected.as_slice()));
     }
 }
