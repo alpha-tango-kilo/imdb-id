@@ -126,10 +126,10 @@ where
 
 impl<'a, E> Debug for Pager<'a, E> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Search results: {}\n", self.entries.len())?;
-        write!(f, "Page size: {}\n", self.page_size)?;
-        write!(f, "Number of pages: {}\n", self.max_page_index + 1)?;
-        write!(f, "Page index: {}\n", self.page_index)
+        writeln!(f, "Search results: {}", self.entries.len())?;
+        writeln!(f, "Page size: {}", self.page_size)?;
+        writeln!(f, "Number of pages: {}", self.max_page_index + 1)?;
+        writeln!(f, "Page index: {}", self.page_index)
     }
 }
 

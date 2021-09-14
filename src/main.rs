@@ -22,7 +22,7 @@ fn app() -> Result<()> {
 
     match config.format {
         Human => {
-            if search_results.entries.len() == 0 {
+            if search_results.entries.is_empty() {
                 return Err(RunError::NoSearchResults);
             } else if !config.interactive || search_results.entries.len() == 1 {
                 let search_result = search_results.entries.get(0).unwrap();

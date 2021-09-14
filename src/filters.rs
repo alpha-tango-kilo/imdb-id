@@ -20,7 +20,7 @@ impl Filters {
         }
 
         let years = match clap_matches.value_of("filter_year") {
-            Some(year_str) => Some(Year::from_str(year_str).map_err(|e| InvalidYearRange(e))?),
+            Some(year_str) => Some(Year::from_str(year_str).map_err(InvalidYearRange)?),
             None => None,
         };
 

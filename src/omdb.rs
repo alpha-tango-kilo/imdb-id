@@ -20,9 +20,9 @@ pub struct SearchResults {
 }
 
 // For serialisation
-impl Into<Vec<SearchResult>> for SearchResults {
-    fn into(self) -> Vec<SearchResult> {
-        self.entries
+impl From<SearchResults> for Vec<SearchResult> {
+    fn from(search_results: SearchResults) -> Self {
+        search_results.entries
     }
 }
 

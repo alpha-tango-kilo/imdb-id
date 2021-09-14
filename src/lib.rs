@@ -50,7 +50,7 @@ impl FromStr for Year {
             // e.g. 1999-
         } else if year_str.ends_with(&Year::SEPARATORS[..]) {
             // Get list of chars
-            let chars = year_str.chars().collect::<SmallVec<[char; 8]>>();
+            let chars = year_str.chars().collect::<SmallVec<[char; 5]>>();
             // Remove last one (the dash)
             let chars = &chars[..chars.len() - 1];
             // Create String from iterator so we can parse
@@ -89,9 +89,9 @@ impl<'de> Deserialize<'de> for Year {
 }
 
 // Used with serialisation
-impl Into<String> for Year {
-    fn into(self) -> String {
-        self.to_string()
+impl From<Year> for String {
+    fn from(year: Year) -> Self {
+        year.to_string()
     }
 }
 

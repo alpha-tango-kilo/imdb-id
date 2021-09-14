@@ -139,7 +139,7 @@ impl RuntimeConfig {
             search_term,
             interactive,
             number_of_results,
-            filters: Filters::new(&clap_matches)?,
+            filters: Filters::new(clap_matches)?,
             format,
         })
     }
