@@ -1,7 +1,7 @@
 # IMDb ID
 
 [![Crates.io](https://img.shields.io/crates/v/imdb-id.svg)](https://crates.io/crates/imdb-id)
-[![GPL v3](https://img.shields.io/badge/license-GPL-blue)](./LICENCE)
+[![GPL v3](https://img.shields.io/badge/license-GPL-blue)](./LICENSE)
 
 An easy-to-use commandline tool to look up the IMDb ID of a movie or show, given its name
 
