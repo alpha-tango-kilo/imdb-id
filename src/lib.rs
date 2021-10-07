@@ -2,11 +2,13 @@ mod clap_wrap;
 mod errors;
 mod filters;
 pub mod omdb;
+mod persistent;
 mod user_input;
 
 pub use clap_wrap::*;
 pub use errors::*;
 pub use filters::*;
+pub use persistent::*;
 pub use reqwest::blocking as reqwest;
 pub use user_input::{get_api_key, Pager};
 

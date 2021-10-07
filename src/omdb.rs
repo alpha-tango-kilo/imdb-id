@@ -160,7 +160,7 @@ pub fn test_api_key(api_key: &str, client: &Client) -> std::result::Result<(), S
     if status.eq(&200) {
         Ok(())
     } else if status.eq(&401) {
-        Err(String::from("Unauthorised API key"))
+        Err(String::from("Unauthorised API key, please edit your input"))
     } else {
         Err(format!("Unexpected response: {}", status))
     }
