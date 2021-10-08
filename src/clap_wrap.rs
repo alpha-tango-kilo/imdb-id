@@ -107,9 +107,11 @@ impl RuntimeConfig {
     fn process_matches(clap_matches: &ArgMatches) -> Result<Self> {
         let search_term = match clap_matches.values_of("search_term") {
             Some(vs) => {
-                // TODO: there has to be a better way than this
+                // There has to be a better way than this
+                // ...apparently not really (without another dependency)
+                // https://stackoverflow.com/questions/56033289/join-iterator-of-str
                 let mut search_term = String::new();
-                vs.into_iter().for_each(|v| {
+                vs.for_each(|v| {
                     search_term.push_str(v);
                     search_term.push(' ');
                 });
