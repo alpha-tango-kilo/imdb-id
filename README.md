@@ -107,9 +107,11 @@ Version 1:
 
 Version 2:
 
-9. OMDb API migration
-10. Spinners! (using [indicatif](https://crates.io/crates/indicatif))
-11. OMDb automated sign-up
-12. [miette](https://crates.io/crates/miette)?
-13. ???
-14. Profit
+9. OMDb API migration - done as of v2.0.0!
+10. Show extra information about media when selecting them
+11. Allowing choosing a season/episode if selected result is a series/season
+12. Spinners! (using [indicatif](https://crates.io/crates/indicatif))
+13. OMDb automated sign-up
+14. [miette](https://crates.io/crates/miette)?
+15. ???
+16. Profit!
