@@ -21,6 +21,17 @@ You need to have [Rust](https://www.rust-lang.org/) installed on your system, th
 cargo install imdb-id
 ```
 
+### How do I update it?
+
+If a new version has come out since you installed, you can run
+
+```shell
+cargo install --force imdb-id
+```
+
+To update the program.
+For a nicer solution to updating any Rust programs you have installed through Cargo, check out [cargo-update](https://github.com/nabijaczleweli/cargo-update)
+
 ## Usage
 
 ```
