@@ -1,4 +1,4 @@
-use crate::{user_input, Filters, Result, RunError};
+use crate::{user_input, ClapError, Filters, Result};
 use clap::{App, AppSettings, Arg, ArgMatches};
 use OutputFormat::*;
 
@@ -40,7 +40,7 @@ impl RuntimeConfig {
                     .about("The maximum number of results to show from IMDb")
                     .takes_value(true)
                     .conflicts_with("non-interactive")
-                    .validator(|s| s.parse::<usize>().map_err(|_| RunError::ClapNotUsize)),
+                    .validator(|s| s.parse::<usize>().map_err(|_| ClapError::NotUsize)),
             )
             .arg(
                 Arg::new("filter_genre")
@@ -57,7 +57,8 @@ impl RuntimeConfig {
                     Examples: Movie, \"TV episode\", \"TV series\"",
                     )
                     .takes_value(true)
-                    .multiple(true),
+                    .multiple_values(true)
+                    .multiple_occurrences(true),
             )
             .arg(
                 Arg::new("filter_year")
@@ -92,7 +93,7 @@ impl RuntimeConfig {
                 Arg::new("search_term")
                     .about("The title of the movie/show you're looking for")
                     .takes_value(true)
-                    .multiple(true),
+                    .multiple_values(true),
             )
             .arg(
                 Arg::new("api_key")
@@ -180,15 +181,15 @@ pub enum OutputFormat {
 }
 
 impl TryFrom<&str> for OutputFormat {
-    type Error = RunError;
+    type Error = ClapError;
 
-    fn try_from(s: &str) -> Result<Self> {
+    fn try_from(s: &str) -> std::result::Result<Self, ClapError> {
         let variant = match s.to_ascii_lowercase().as_str() {
             "human" | "plain" => Human,
             "json" => Json,
             #[cfg(feature = "yaml")]
             "yaml" => Yaml,
-            _ => return Err(RunError::ClapInvalidFormat),
+            _ => return Err(ClapError::InvalidFormat),
         };
         Ok(variant)
     }
@@ -317,7 +318,10 @@ mod unit_tests {
         let matches = clap
             .try_get_matches_from(vec![env!("CARGO_PKG_NAME"), "foo", "bar"])
             .unwrap();
-        let values = matches.values_of("search_term").unwrap();
+        let values = matches
+            .values_of("search_term")
+            .unwrap()
+            .collect::<Vec<_>>();
         assert_eq!(values.len(), 2);
 
         let config = RuntimeConfig::process_matches(&matches).unwrap();
