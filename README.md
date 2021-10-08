@@ -43,6 +43,9 @@ FLAGS:
 
 
 OPTIONS:
+        --api-key <api_key>
+            Your OMDb API key (overrides saved value if present)
+
     -g, --genre <filter_genre>...
             Filters results to a specific genre
             Can be given multiple arguments or passed multiple times, working as a chain of OR

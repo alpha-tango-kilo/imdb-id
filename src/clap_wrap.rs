@@ -10,6 +10,7 @@ pub struct RuntimeConfig {
     pub number_of_results: usize,
     pub filters: Filters,
     pub format: OutputFormat,
+    pub api_key: Option<String>,
 }
 
 impl RuntimeConfig {
@@ -19,6 +20,7 @@ impl RuntimeConfig {
 
     // public for testing purposes in filters.rs
     pub(crate) fn create_clap_app() -> clap::App<'static> {
+        #[allow(clippy::redundant_closure)]
         App::new(env!("CARGO_PKG_NAME"))
             .version(env!("CARGO_PKG_VERSION"))
             .author("alpha-tango-kilo <git@heyatk.com>")
@@ -82,6 +84,7 @@ impl RuntimeConfig {
                     Formats are only available if you opted-IN at installation\n\
                     All the formats imdb-id can support are: json, yaml",
                     )
+                    // Clippy thinks this closure is redundant
                     .validator(|s| OutputFormat::try_from(s))
                     .takes_value(true),
             )
@@ -90,6 +93,13 @@ impl RuntimeConfig {
                     .about("The title of the movie/show you're looking for")
                     .takes_value(true)
                     .multiple(true),
+            )
+            .arg(
+                Arg::new("api_key")
+                    .long("api-key")
+                    .about("Your OMDb API key")
+                    .long_about("Your OMDb API key (overrides saved value if present)")
+                    .takes_value(true),
             )
     }
 
@@ -135,12 +145,15 @@ impl RuntimeConfig {
             1
         };
 
+        let api_key = clap_matches.value_of("api_key").map(|s| s.to_owned());
+
         Ok(RuntimeConfig {
             search_term,
             interactive,
             number_of_results,
             filters: Filters::new(clap_matches)?,
             format,
+            api_key,
         })
     }
 }
@@ -153,6 +166,7 @@ impl Default for RuntimeConfig {
             number_of_results: 10,
             filters: Filters::default(),
             format: Human,
+            api_key: None,
         }
     }
 }
@@ -363,5 +377,14 @@ mod unit_tests {
             .try_get_matches_from(vec![env!("CARGO_PKG_NAME"), "--format", "foo"])
             .unwrap_err();
         assert_eq!(err.kind, clap::ErrorKind::ValueValidation);
+    }
+
+    #[test]
+    fn api_key() {
+        let clap = RuntimeConfig::create_clap_app();
+        let m = clap
+            .try_get_matches_from(vec![env!("CARGO_PKG_NAME"), "--api-key", "123483"])
+            .unwrap();
+        assert_eq!(m.value_of("api_key"), Some("123483"));
     }
 }

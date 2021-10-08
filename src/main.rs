@@ -13,11 +13,24 @@ fn main() {
 fn app() -> Result<()> {
     let runtime_config = RuntimeConfig::new()?;
     let client = reqwest::Client::new();
-    let disk_config = match OnDiskConfig::load() {
-        Ok(config) => config,
-        Err(e) => match e.kind() {
-            io::ErrorKind::NotFound => OnDiskConfig::new(&get_api_key(&client)?),
-            _ => return Err(e.into()),
+    // If an API key is given using the --api-key arg, prefer this over stored value
+    let disk_config = match runtime_config.api_key {
+        Some(ref api_key) => {
+            let mut config = OnDiskConfig {
+                api_key: api_key.clone(),
+            };
+            config.validate(&client)?;
+            config
+        }
+        None => match OnDiskConfig::load() {
+            Ok(mut config) => {
+                config.validate(&client)?;
+                config
+            }
+            Err(e) => match e.kind() {
+                io::ErrorKind::NotFound => OnDiskConfig::new_from_prompt(&client)?,
+                _ => return Err(e.into()),
+            },
         },
     };
 

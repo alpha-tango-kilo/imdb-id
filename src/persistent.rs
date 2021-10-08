@@ -1,3 +1,7 @@
+use crate::get_api_key;
+use crate::omdb::test_api_key;
+use crate::Result;
+use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::fs::OpenOptions;
@@ -10,11 +14,9 @@ pub struct OnDiskConfig {
 }
 
 impl OnDiskConfig {
-    pub fn new(api_key: &str) -> Self {
-        // Test API key?
-        OnDiskConfig {
-            api_key: api_key.to_owned(),
-        }
+    pub fn new_from_prompt(client: &Client) -> Result<Self> {
+        let api_key = get_api_key(client)?;
+        Ok(OnDiskConfig { api_key })
     }
 
     pub fn save(&self) -> std::io::Result<()> {
@@ -31,8 +33,19 @@ impl OnDiskConfig {
     pub fn load() -> std::io::Result<Self> {
         let bytes = fs::read(OnDiskConfig::config_path())?;
         let config = serde_json::from_slice(&bytes)?;
-        println!("Loaded config successfully");
         Ok(config)
+    }
+
+    pub fn check(&self, client: &Client) -> std::result::Result<(), String> {
+        test_api_key(&self.api_key, client)
+    }
+
+    pub fn validate(&mut self, client: &Client) -> Result<()> {
+        if let Err(why) = self.check(client) {
+            eprintln!("{}", why);
+            self.api_key = get_api_key(client)?;
+        }
+        Ok(())
     }
 
     fn config_path() -> PathBuf {

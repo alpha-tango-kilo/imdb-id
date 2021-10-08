@@ -150,6 +150,10 @@ pub fn search_by_title(api_key: &str, client: &Client, title: &str) -> Result<Se
 }
 
 pub fn test_api_key(api_key: &str, client: &Client) -> std::result::Result<(), String> {
+    if api_key.parse::<u32>().is_err() {
+        return Err("Invalid API key format, please edit your input".into());
+    }
+
     let status = client
         .get("https://www.omdbapi.com/")
         .query(&[("apikey", api_key)])
@@ -253,5 +257,16 @@ mod unit_tests {
             .map(|entry| &entry.actors)
             .zip(actors.iter())
             .for_each(|(actual, expected)| assert_eq!(actual.as_slice(), expected.as_slice()));
+    }
+
+    #[test]
+    fn api_key_u32_check() {
+        let client = reqwest::blocking::Client::new();
+        let err = test_api_key("foo", &client).unwrap_err();
+        assert_eq!(
+            &err, "Invalid API key format, please edit your input",
+            "Different error returned than expected: '{}'",
+            err
+        );
     }
 }
