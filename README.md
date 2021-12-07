@@ -1,5 +1,6 @@
 # IMDb ID
 
+[![Codeberg CI](https://ci.codeberg.org/api/badges/alpha-tango-kilo/imdb-id/status.svg)](https://ci.codeberg.org/alpha-tango-kilo/imdb-id)
 [![Crates.io](https://img.shields.io/crates/v/imdb-id.svg)](https://crates.io/crates/imdb-id)
 [![GPL v3](https://img.shields.io/badge/license-GPL-blue)](./LICENSE)
 
