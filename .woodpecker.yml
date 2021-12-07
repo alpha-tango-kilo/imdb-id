@@ -6,7 +6,7 @@ pipeline:
   test:
     image: rust
     commands:
-      - cargo test
+      - cargo test --all-features
   lint:
     image: rust
     commands:
