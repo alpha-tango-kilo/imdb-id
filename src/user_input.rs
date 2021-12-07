@@ -1,9 +1,9 @@
 use crate::omdb::test_api_key;
 use crate::RunError::InputUserHalted;
 use crate::{reqwest, Result};
+use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Input, Select};
 use std::fmt::Display;
-use dialoguer::theme::ColorfulTheme;
 
 // TODO: customise theme
 
@@ -17,7 +17,9 @@ pub fn get_api_key(client: &reqwest::Client) -> Result<String> {
 
 pub fn get_search_term() -> Result<String> {
     let question = Input::with_theme(&ColorfulTheme::default())
-        .with_prompt("Please enter the name of the movie/show you're looking for")
+        .with_prompt(
+            "Please enter the name of the movie/show you're looking for",
+        )
         .interact_text()?;
     Ok(question)
 }

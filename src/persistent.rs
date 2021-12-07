@@ -49,7 +49,8 @@ impl OnDiskConfig {
     }
 
     fn config_path() -> PathBuf {
-        let mut config_path = dirs::config_dir().expect("Platform unsupported by dirs");
+        let mut config_path =
+            dirs::config_dir().expect("Platform unsupported by dirs");
         config_path.push("imdb-id.json");
         config_path
     }

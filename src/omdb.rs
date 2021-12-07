@@ -53,9 +53,15 @@ pub struct Entry {
     pub runtime: String,
     #[serde(rename(deserialize = "Genre"), deserialize_with = "de_comma_list")]
     pub genres: SmallVec<[String; 3]>,
-    #[serde(rename(deserialize = "Director"), deserialize_with = "de_comma_list")]
+    #[serde(
+        rename(deserialize = "Director"),
+        deserialize_with = "de_comma_list"
+    )]
     pub directors: SmallVec<[String; 3]>,
-    #[serde(rename(deserialize = "Writer"), deserialize_with = "de_comma_list")]
+    #[serde(
+        rename(deserialize = "Writer"),
+        deserialize_with = "de_comma_list"
+    )]
     pub writers: SmallVec<[String; 3]>,
     #[serde(deserialize_with = "de_comma_list")]
     pub actors: SmallVec<[String; 3]>,
@@ -98,15 +104,21 @@ where
     <T as FromStr>::Err: Debug,
 {
     let s = String::deserialize(d)?;
-    T::from_str(&s)
-        .map_err(|e| D::Error::custom(format!("Could not parse field as desired type ({:?})", e)))
+    T::from_str(&s).map_err(|e| {
+        D::Error::custom(format!(
+            "Could not parse field as desired type ({:?})",
+            e
+        ))
+    })
 }
 
 /*
 Lists in OMDb are given like "Pete Docter, Bob Peterson, Tom McCarthy"
 This helper throws that into a SmallVec<[String; 3]>
  */
-fn de_comma_list<'de, D>(d: D) -> std::result::Result<SmallVec<[String; 3]>, D::Error>
+fn de_comma_list<'de, D>(
+    d: D,
+) -> std::result::Result<SmallVec<[String; 3]>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -126,12 +138,16 @@ From the tokio website, "When not to use Tokio"
 - https://tokio.rs/tokio/tutorial
 
 A note about the json feature of reqwest:
-While it does seem like it'd be useful, in reality it prevents access to the raw JSON response
-if the deserialisation fails. It also means I can't as specifically classify the type of
-error for packaging into RunError
+While it does seem like it'd be useful, in reality it prevents access to the
+raw JSON response if the deserialisation fails. It also means I can't as
+specifically classify the type of error for packaging into RunError
  */
 
-pub fn lookup_title(api_key: &str, client: &Client, title: &str) -> Result<Entry> {
+pub fn lookup_title(
+    api_key: &str,
+    client: &Client,
+    title: &str,
+) -> Result<Entry> {
     let body = build_query(client, api_key)
         .query(&[("t", title)])
         .send()?
@@ -140,16 +156,24 @@ pub fn lookup_title(api_key: &str, client: &Client, title: &str) -> Result<Entry
     if body == r#"{"Response":"False","Error":"Movie not found!"}"# {
         Err(RunError::OmdbNotFound(title.into()))
     } else {
-        serde_json::from_str(&body).map_err(|err| RunError::OmdbUnrecognised(body, err))
+        serde_json::from_str(&body)
+            .map_err(|err| RunError::OmdbUnrecognised(body, err))
     }
 }
 
-pub fn search_by_title(api_key: &str, client: &Client, title: &str) -> Result<SearchResults> {
+pub fn search_by_title(
+    api_key: &str,
+    client: &Client,
+    title: &str,
+) -> Result<SearchResults> {
     let request = build_query(client, api_key).query(&[("s", title)]);
     send_request_deserialise_response(request)
 }
 
-pub fn test_api_key(api_key: &str, client: &Client) -> std::result::Result<(), String> {
+pub fn test_api_key(
+    api_key: &str,
+    client: &Client,
+) -> std::result::Result<(), String> {
     if api_key.parse::<u32>().is_err() {
         return Err("Invalid API key format".into());
     }
@@ -173,7 +197,8 @@ pub fn test_api_key(api_key: &str, client: &Client) -> std::result::Result<(), S
 fn build_query(client: &Client, api_key: &str) -> RequestBuilder {
     client
         .get("https://www.omdbapi.com/")
-        // Lock to API version 1 and return type JSON in case this changes in future
+        // Lock to API version 1 and return type JSON in case this changes in
+        // future
         .query(&[("apikey", api_key), ("v", "1"), ("r", "json")])
 }
 
@@ -182,7 +207,8 @@ where
     T: DeserializeOwned,
 {
     let body = request.send()?.text()?;
-    serde_json::from_str(&body).map_err(|err| RunError::OmdbUnrecognised(body, err))
+    serde_json::from_str(&body)
+        .map_err(|err| RunError::OmdbUnrecognised(body, err))
 }
 
 #[cfg(test)]
@@ -204,7 +230,9 @@ mod unit_tests {
     const DESERIALISED: Lazy<Vec<Entry>> = Lazy::new(|| {
         INPUTS
             .iter()
-            .map(|json_str| serde_json::from_str(*json_str).expect("Failed to deserialise"))
+            .map(|json_str| {
+                serde_json::from_str(*json_str).expect("Failed to deserialise")
+            })
             .collect()
     });
 
@@ -220,7 +248,9 @@ mod unit_tests {
             .iter()
             .map(|entry| &entry.genres)
             .zip(genres.iter())
-            .for_each(|(actual, expected)| assert_eq!(actual.as_slice(), expected.as_slice()));
+            .for_each(|(actual, expected)| {
+                assert_eq!(actual.as_slice(), expected.as_slice())
+            });
 
         let directors = [
             vec!["Pete Docter", "Bob Peterson"],
@@ -232,7 +262,9 @@ mod unit_tests {
             .iter()
             .map(|entry| &entry.directors)
             .zip(directors.iter())
-            .for_each(|(actual, expected)| assert_eq!(actual.as_slice(), expected.as_slice()));
+            .for_each(|(actual, expected)| {
+                assert_eq!(actual.as_slice(), expected.as_slice())
+            });
 
         let writers = [
             vec!["Pete Docter", "Bob Peterson", "Tom McCarthy"],
@@ -244,7 +276,9 @@ mod unit_tests {
             .iter()
             .map(|entry| &entry.writers)
             .zip(writers.iter())
-            .for_each(|(actual, expected)| assert_eq!(actual.as_slice(), expected.as_slice()));
+            .for_each(|(actual, expected)| {
+                assert_eq!(actual.as_slice(), expected.as_slice())
+            });
 
         let actors = [
             vec!["Edward Asner", "Jordan Nagai", "John Ratzenberger"],
@@ -256,7 +290,9 @@ mod unit_tests {
             .iter()
             .map(|entry| &entry.actors)
             .zip(actors.iter())
-            .for_each(|(actual, expected)| assert_eq!(actual.as_slice(), expected.as_slice()));
+            .for_each(|(actual, expected)| {
+                assert_eq!(actual.as_slice(), expected.as_slice())
+            });
     }
 
     #[test]

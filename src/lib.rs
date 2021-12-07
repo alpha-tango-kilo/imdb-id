@@ -85,8 +85,9 @@ impl<'de> Deserialize<'de> for Year {
         D: Deserializer<'de>,
     {
         let s = String::deserialize(d)?;
-        Year::from_str(&s)
-            .map_err(|e| D::Error::custom(format!("Could not parse field as year ({:?})", e)))
+        Year::from_str(&s).map_err(|e| {
+            D::Error::custom(format!("Could not parse field as year ({:?})", e))
+        })
     }
 }
 

@@ -21,7 +21,7 @@ pub enum RunError {
     InputIo(io::Error),
     NoDesiredSearchResults,
     Serde(Box<dyn Error>),
-    OmdbNotFound(String),                        // search term
+    OmdbNotFound(String), // search term
     OmdbUnrecognised(String, serde_json::Error), // raw response JSON
 }
 

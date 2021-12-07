@@ -15,7 +15,9 @@ pub struct RuntimeConfig {
 
 impl RuntimeConfig {
     pub fn new() -> Result<Self> {
-        RuntimeConfig::process_matches(&RuntimeConfig::create_clap_app().get_matches())
+        RuntimeConfig::process_matches(
+            &RuntimeConfig::create_clap_app().get_matches(),
+        )
     }
 
     // public for testing purposes in filters.rs
@@ -235,7 +237,12 @@ mod unit_tests {
     fn results_short() {
         let clap = RuntimeConfig::create_clap_app();
         let m = clap
-            .try_get_matches_from(vec![env!("CARGO_PKG_NAME"), "-r", "3", "foo"])
+            .try_get_matches_from(vec![
+                env!("CARGO_PKG_NAME"),
+                "-r",
+                "3",
+                "foo",
+            ])
             .unwrap();
         assert_eq!(m.value_of("number_of_results"), Some("3"));
 
@@ -247,7 +254,12 @@ mod unit_tests {
     fn results_long() {
         let clap = RuntimeConfig::create_clap_app();
         let m = clap
-            .try_get_matches_from(vec![env!("CARGO_PKG_NAME"), "--results", "7", "foo"])
+            .try_get_matches_from(vec![
+                env!("CARGO_PKG_NAME"),
+                "--results",
+                "7",
+                "foo",
+            ])
             .unwrap();
         assert_eq!(m.value_of("number_of_results"), Some("7"));
 
@@ -259,7 +271,12 @@ mod unit_tests {
     fn results_invalid() {
         let clap = RuntimeConfig::create_clap_app();
         let err = clap
-            .try_get_matches_from(vec![env!("CARGO_PKG_NAME"), "--results", "bar", "foo"])
+            .try_get_matches_from(vec![
+                env!("CARGO_PKG_NAME"),
+                "--results",
+                "bar",
+                "foo",
+            ])
             .unwrap_err();
         assert_eq!(err.kind, clap::ErrorKind::ValueValidation);
     }
@@ -281,7 +298,11 @@ mod unit_tests {
     fn non_interactive_long() {
         let clap = RuntimeConfig::create_clap_app();
         let m = clap
-            .try_get_matches_from(vec![env!("CARGO_PKG_NAME"), "--non-interactive", "foo"])
+            .try_get_matches_from(vec![
+                env!("CARGO_PKG_NAME"),
+                "--non-interactive",
+                "foo",
+            ])
             .unwrap();
         assert!(m.is_present("non-interactive"));
 
@@ -309,7 +330,10 @@ mod unit_tests {
     fn require_search_term_if_n() {
         let clap = RuntimeConfig::create_clap_app();
         let err = clap
-            .try_get_matches_from(vec![env!("CARGO_PKG_NAME"), "--non-interactive"])
+            .try_get_matches_from(vec![
+                env!("CARGO_PKG_NAME"),
+                "--non-interactive",
+            ])
             .unwrap_err();
         assert_eq!(err.kind, clap::ErrorKind::MissingRequiredArgument)
     }
@@ -344,7 +368,11 @@ mod unit_tests {
         if cfg!(feature = "yaml") {
             let clap = RuntimeConfig::create_clap_app();
             let m = clap
-                .try_get_matches_from(vec![env!("CARGO_PKG_NAME"), "-f", "yaml"])
+                .try_get_matches_from(vec![
+                    env!("CARGO_PKG_NAME"),
+                    "-f",
+                    "yaml",
+                ])
                 .unwrap();
             assert_eq!(m.value_of("format"), Some("yaml"));
 
@@ -357,7 +385,11 @@ mod unit_tests {
     fn format_long() {
         let clap = RuntimeConfig::create_clap_app();
         let m = clap
-            .try_get_matches_from(vec![env!("CARGO_PKG_NAME"), "--format", "json"])
+            .try_get_matches_from(vec![
+                env!("CARGO_PKG_NAME"),
+                "--format",
+                "json",
+            ])
             .unwrap();
         assert_eq!(m.value_of("format"), Some("json"));
 
@@ -367,7 +399,11 @@ mod unit_tests {
         if cfg!(feature = "yaml") {
             let clap = RuntimeConfig::create_clap_app();
             let m = clap
-                .try_get_matches_from(vec![env!("CARGO_PKG_NAME"), "--format", "yaml"])
+                .try_get_matches_from(vec![
+                    env!("CARGO_PKG_NAME"),
+                    "--format",
+                    "yaml",
+                ])
                 .unwrap();
             assert_eq!(m.value_of("format"), Some("yaml"));
 
@@ -380,7 +416,11 @@ mod unit_tests {
     fn invalid_format() {
         let clap = RuntimeConfig::create_clap_app();
         let err = clap
-            .try_get_matches_from(vec![env!("CARGO_PKG_NAME"), "--format", "foo"])
+            .try_get_matches_from(vec![
+                env!("CARGO_PKG_NAME"),
+                "--format",
+                "foo",
+            ])
             .unwrap_err();
         assert_eq!(err.kind, clap::ErrorKind::ValueValidation);
     }
@@ -389,7 +429,11 @@ mod unit_tests {
     fn api_key() {
         let clap = RuntimeConfig::create_clap_app();
         let m = clap
-            .try_get_matches_from(vec![env!("CARGO_PKG_NAME"), "--api-key", "123483"])
+            .try_get_matches_from(vec![
+                env!("CARGO_PKG_NAME"),
+                "--api-key",
+                "123483",
+            ])
             .unwrap();
         assert_eq!(m.value_of("api_key"), Some("123483"));
     }
