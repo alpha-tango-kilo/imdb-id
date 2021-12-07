@@ -49,8 +49,11 @@ fn app() -> Result<()> {
                 println!("{}", search_result.imdb_id);
             } else {
                 // Guaranteed to be interactive
-                let mut pager = Pager::new(&search_results.entries, &runtime_config);
-                let selected = pager.ask()?;
+                let end_index = min(
+                    search_results.entries.len(),
+                    runtime_config.number_of_results,
+                );
+                let selected = choose_result_from(&search_results.entries[..end_index])?;
                 println!("{}", selected.imdb_id);
             }
         }

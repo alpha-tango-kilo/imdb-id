@@ -1,6 +1,5 @@
 use std::{fmt, io};
 
-use requestty::ErrorKind;
 use std::error::Error;
 use std::num::ParseIntError;
 use RunError::*;
@@ -19,7 +18,7 @@ pub enum RunError {
     NoSearchResults,
     Reqwest(reqwest::Error),
     InputUserHalted,
-    InputIo(io::Error), // includes crossterm
+    InputIo(io::Error),
     NoDesiredSearchResults,
     Serde(Box<dyn Error>),
     OmdbNotFound(String),                        // search term
@@ -88,16 +87,6 @@ impl From<ClapError> for RunError {
 impl From<reqwest::Error> for RunError {
     fn from(reqwest_err: reqwest::Error) -> Self {
         Reqwest(reqwest_err)
-    }
-}
-
-impl From<requestty::ErrorKind> for RunError {
-    fn from(requestty_err: ErrorKind) -> Self {
-        use requestty::ErrorKind::*;
-        match requestty_err {
-            Eof | Interrupted => InputUserHalted,
-            IoError(io_err) => Self::from(io_err),
-        }
     }
 }
 

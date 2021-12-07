@@ -151,7 +151,7 @@ pub fn search_by_title(api_key: &str, client: &Client, title: &str) -> Result<Se
 
 pub fn test_api_key(api_key: &str, client: &Client) -> std::result::Result<(), String> {
     if api_key.parse::<u32>().is_err() {
-        return Err("Invalid API key format, please edit your input".into());
+        return Err("Invalid API key format".into());
     }
 
     let status = client
