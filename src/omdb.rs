@@ -298,11 +298,6 @@ mod unit_tests {
     #[test]
     fn api_key_u32_check() {
         let client = reqwest::blocking::Client::new();
-        let err = test_api_key("foo", &client).unwrap_err();
-        assert_eq!(
-            &err, "Invalid API key format, please edit your input",
-            "Different error returned than expected: '{}'",
-            err
-        );
+        test_api_key("foo", &client).unwrap_err();
     }
 }
