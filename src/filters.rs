@@ -33,11 +33,22 @@ impl Filters {
         let year_matches = match &self.years {
             Some(year) => match (year, &search_result.year) {
                 (Year::Single(a), Year::Single(b)) => a == b,
-                (Year::Range(a), Year::Range(b)) => {
-                    a.contains(b.start()) || a.contains(b.end())
+                (
+                    Year::Range { start: None, .. },
+                    Year::Range { start: None, .. },
+                ) => true,
+                (
+                    Year::Range { end: None, .. },
+                    Year::Range { end: None, .. },
+                ) => true,
+                (Year::Range { .. }, Year::Range { start, end }) => {
+                    start.map_or(false, |s| year.contains(s))
+                        || end.map_or(false, |s| year.contains(s))
                 }
-                (Year::Single(a), Year::Range(b)) => b.contains(a),
-                (Year::Range(a), Year::Single(b)) => a.contains(b),
+                (Year::Single(a), Year::Range { .. }) => {
+                    search_result.year.contains(*a)
+                }
+                (Year::Range { .. }, Year::Single(b)) => year.contains(*b),
             },
             None => true,
         };
@@ -63,7 +74,7 @@ impl Default for Filters {
 #[cfg(test)]
 mod unit_tests {
     mod creation {
-        use crate::{Filters, RuntimeConfig, Year::*};
+        use crate::{Filters, RuntimeConfig, Year, Year::*};
         use smallvec::smallvec;
 
         #[test]
@@ -136,7 +147,10 @@ mod unit_tests {
                 filters,
                 Filters {
                     genres: smallvec![],
-                    years: Some(Range(1980..=2010)),
+                    years: Some(Year::Range {
+                        start: Some(1980),
+                        end: Some(2010),
+                    }),
                 }
             );
 
@@ -153,7 +167,10 @@ mod unit_tests {
                 filters,
                 Filters {
                     genres: smallvec![],
-                    years: Some(Range(1980..=u16::MAX)),
+                    years: Some(Year::Range {
+                        start: Some(1980),
+                        end: None,
+                    }),
                 }
             );
 
@@ -170,7 +187,10 @@ mod unit_tests {
                 filters,
                 Filters {
                     genres: smallvec![],
-                    years: Some(Range(u16::MIN..=2010)),
+                    years: Some(Year::Range {
+                        start: None,
+                        end: Some(2010),
+                    }),
                 }
             );
         }
@@ -190,7 +210,10 @@ mod unit_tests {
                 filters,
                 Filters {
                     genres: smallvec![],
-                    years: Some(Range(1980..=2010)),
+                    years: Some(Year::Range {
+                        start: Some(1980),
+                        end: Some(2010),
+                    }),
                 }
             );
         }
@@ -213,7 +236,10 @@ mod unit_tests {
                 filters,
                 Filters {
                     genres: smallvec!["Movie".into(), "Video".into()],
-                    years: Some(Range(1980..=2010)),
+                    years: Some(Year::Range {
+                        start: Some(1980),
+                        end: Some(2010),
+                    }),
                 }
             );
         }
@@ -295,19 +321,32 @@ mod unit_tests {
                         title: "Black Mirror".into(),
                         imdb_id: "tt2085059".into(),
                         media_type: "Series".into(),
-                        year: Year::Range(2011..=u16::MAX),
+                        year: Year::Range {
+                            start: Some(2016),
+                            end: None,
+                        },
                     },
                     SearchResult {
                         title: "Seinfeld".into(),
                         imdb_id: "tt0098904".into(),
                         media_type: "Series".into(),
-                        year: Year::Range(1989..=1998),
+                        year: Year::Range {
+                            start: Some(1989),
+                            end: Some(1998),
+                        },
                     },
                 ]
             });
 
         fn get_outcomes(filters: &Filters) -> Vec<bool> {
-            SEARCH_RESULTS.iter().map(|sr| filters.allows(sr)).collect()
+            SEARCH_RESULTS
+                .iter()
+                .map(|sr| {
+                    let ans = filters.allows(sr);
+                    println!("Do {:?} allow {}? {}", filters, sr, ans);
+                    ans
+                })
+                .collect()
         }
 
         #[test]
@@ -395,7 +434,10 @@ mod unit_tests {
         fn years() {
             let test = Filters {
                 genres: smallvec![],
-                years: Some(Year::Range(2020..=u16::MAX)),
+                years: Some(Year::Range {
+                    start: Some(2020),
+                    end: None,
+                }),
             };
             let results = [
                 false, true, false, false, false, false, false, false, true,
@@ -405,7 +447,10 @@ mod unit_tests {
 
             let test = Filters {
                 genres: smallvec![],
-                years: Some(Year::Range(1950..=2010)),
+                years: Some(Year::Range {
+                    start: Some(1950),
+                    end: Some(2010),
+                }),
             };
             let results = [
                 false, false, false, false, false, false, true, true, false,
@@ -418,7 +463,10 @@ mod unit_tests {
         fn mixed() {
             let test = Filters {
                 genres: smallvec!["Movie".into()],
-                years: Some(Year::Range(1950..=2010)),
+                years: Some(Year::Range {
+                    start: Some(1950),
+                    end: Some(2010),
+                }),
             };
             let results = [
                 false, false, false, false, false, false, true, true, false,
@@ -428,7 +476,10 @@ mod unit_tests {
 
             let test = Filters {
                 genres: smallvec!["Movie".into(), "TV Episode".into()],
-                years: Some(Year::Range(2010..=u16::MAX)),
+                years: Some(Year::Range {
+                    start: Some(2010),
+                    end: None,
+                }),
             };
             let results = [
                 true, true, true, false, false, false, true, false, true,
