@@ -360,7 +360,7 @@ dependencies = [
 
 [[package]]
 name = "imdb-id"
-version = "2.0.1"
+version = "2.0.2"
 dependencies = [
  "atty",
  "clap",
