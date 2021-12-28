@@ -22,6 +22,7 @@ pub enum RunError {
     NoDesiredSearchResults,
     Serde(Box<dyn Error>),
     OmdbNotFound(String), // search term
+    OmdbError(String),    // "Error" field of response
     OmdbUnrecognised(String, serde_json::Error), // raw response JSON
 }
 
@@ -42,6 +43,7 @@ impl RunError {
             NoDesiredSearchResults => 0,
             Serde(_) => 2,
             OmdbNotFound(_) => 1,
+            OmdbError(_) => 3,
             OmdbUnrecognised(_, _) => 2,
         }
     }
@@ -59,13 +61,11 @@ impl fmt::Display for RunError {
             NoDesiredSearchResults => write!(f, "You couldn't find what you wanted :("),
             Serde(e) => write!(f, "Failed to serialise output data: {}", e),
             OmdbNotFound(search_term) => write!(f, "No record found on OMDb for {:?}", search_term),
+            OmdbError(response) => write!(f, "OMDb API returned an error: {:?}", response),
             OmdbUnrecognised(json, err) => write!(
                 f,
                 "Unrecognised response from OMDb, please raise an issue including the following text:\n\
-                Serde error: \n\
-                ```\n\
-                {}\n\
-                ```\n\
+                Serde error: {}\n\
                 JSON: \n\
                 ```\n\
                 {}\n\

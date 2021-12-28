@@ -1,10 +1,23 @@
 use crate::{Result, RunError, Year};
 use reqwest::blocking::{Client, RequestBuilder};
-use serde::de::{DeserializeOwned, Error};
+use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize};
 use smallvec::SmallVec;
 use std::fmt::{self, Debug};
 use std::str::FromStr;
+
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum OmdbResult {
+    Err(OmdbError),
+    Ok(SearchResults),
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct OmdbError {
+    error: String,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 // When serialising, just give the list of results
@@ -106,7 +119,7 @@ where
     let s = String::deserialize(d)?;
     T::from_str(&s).map_err(|e| {
         D::Error::custom(format!(
-            "Could not parse field as desired type ({:?})",
+            "could not parse field as desired type ({:?})",
             e
         ))
     })
@@ -143,31 +156,20 @@ raw JSON response if the deserialisation fails. It also means I can't as
 specifically classify the type of error for packaging into RunError
  */
 
-pub fn lookup_title(
-    api_key: &str,
-    client: &Client,
-    title: &str,
-) -> Result<Entry> {
-    let body = build_query(client, api_key)
-        .query(&[("t", title)])
-        .send()?
-        .text()?;
-
-    if body == r#"{"Response":"False","Error":"Movie not found!"}"# {
-        Err(RunError::OmdbNotFound(title.into()))
-    } else {
-        serde_json::from_str(&body)
-            .map_err(|err| RunError::OmdbUnrecognised(body, err))
-    }
-}
-
 pub fn search_by_title(
     api_key: &str,
     client: &Client,
     title: &str,
 ) -> Result<SearchResults> {
     let request = build_query(client, api_key).query(&[("s", title)]);
-    send_request_deserialise_response(request)
+    let body = request.send()?.text()?;
+
+    let de = serde_json::from_str(&body)
+        .map_err(|err| RunError::OmdbUnrecognised(body, err))?;
+    match de {
+        OmdbResult::Ok(s) => Ok(s),
+        OmdbResult::Err(e) => Err(RunError::OmdbError(e.error)),
+    }
 }
 
 pub fn test_api_key(
@@ -200,15 +202,6 @@ fn build_query(client: &Client, api_key: &str) -> RequestBuilder {
         // Lock to API version 1 and return type JSON in case this changes in
         // future
         .query(&[("apikey", api_key), ("v", "1"), ("r", "json")])
-}
-
-fn send_request_deserialise_response<T>(request: RequestBuilder) -> Result<T>
-where
-    T: DeserializeOwned,
-{
-    let body = request.send()?.text()?;
-    serde_json::from_str(&body)
-        .map_err(|err| RunError::OmdbUnrecognised(body, err))
 }
 
 #[cfg(test)]
