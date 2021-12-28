@@ -29,6 +29,7 @@ use Year::*;
 #[cfg_attr(test, derive(Eq, PartialEq))]
 pub enum Year {
     Single(u16),
+    // start and end should never both be None
     Range {
         start: Option<u16>,
         end: Option<u16>,
@@ -181,6 +182,11 @@ mod year_unit_tests {
             .map(|s| Year::from_str(s).expect("Year should have parsed"))
             .zip(YEARS.iter())
             .for_each(|(a, b)| assert_eq!(a, *b));
+    }
+
+    #[test]
+    fn from_str_invalid() {
+        Year::from_str("-").unwrap_err();
     }
 
     #[test]
