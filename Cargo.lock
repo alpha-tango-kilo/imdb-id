@@ -359,6 +359,7 @@ dependencies = [
  "clap",
  "dialoguer",
  "dirs",
+ "lazy_static",
  "once_cell",
  "reqwest",
  "serde",

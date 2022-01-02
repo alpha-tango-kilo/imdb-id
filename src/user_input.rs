@@ -3,11 +3,13 @@ use crate::RunError::InputUserHalted;
 use crate::{reqwest, Result};
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Input, Select};
-use once_cell::unsync::Lazy;
+use lazy_static::lazy_static;
 use std::fmt::Display;
 use std::ops::Deref;
 
-const THEME: Lazy<ColorfulTheme> = Lazy::new(Default::default);
+lazy_static! {
+    static ref THEME: ColorfulTheme = Default::default();
+}
 
 pub fn get_api_key(client: &reqwest::Client) -> Result<String> {
     let api_key = Input::with_theme(THEME.deref())
