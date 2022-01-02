@@ -22,7 +22,6 @@ impl RuntimeConfig {
 
     // public for testing purposes in filters.rs
     pub(crate) fn create_clap_app() -> clap::App<'static> {
-        #[allow(clippy::redundant_closure)]
         App::new(env!("CARGO_PKG_NAME"))
             .version(env!("CARGO_PKG_VERSION"))
             .author("alpha-tango-kilo <git@heyatk.com>")
@@ -32,14 +31,14 @@ impl RuntimeConfig {
                 Arg::new("non-interactive")
                     .short('n')
                     .long("non-interactive")
-                    .about("Disables interactive features (always picks the first result)")
+                    .help("Disables interactive features (always picks the first result)")
                     .requires("search_term"),
             )
             .arg(
                 Arg::new("number_of_results")
                     .short('r')
                     .long("results")
-                    .about("The maximum number of results to show from IMDb")
+                    .help("The maximum number of results to show from IMDb")
                     .takes_value(true)
                     .conflicts_with("non-interactive")
                     .validator(|s| s.parse::<usize>().map_err(|_| ClapError::NotUsize)),
@@ -48,8 +47,8 @@ impl RuntimeConfig {
                 Arg::new("filter_genre")
                     .short('g')
                     .long("genre")
-                    .about("Filters results to a specific genre")
-                    .long_about(
+                    .help("Filters results to a specific genre")
+                    .long_help(
                         "Filters results to a specific genre\n\
                     Can be given multiple arguments or passed multiple times, \
                     working as a chain of OR statements logically. \
@@ -66,8 +65,8 @@ impl RuntimeConfig {
                 Arg::new("filter_year")
                     .short('y')
                     .long("year")
-                    .about("Filter results to a specific year")
-                    .long_about(
+                    .help("Filter results to a specific year")
+                    .long_help(
                         "Filters results to a specific year, or range of years\n\
                     Media which has no year specified will always be included\n\
                     Ranges are fully inclusive\n\
@@ -81,27 +80,26 @@ impl RuntimeConfig {
                 Arg::new("format")
                     .short('f')
                     .long("format")
-                    .about("Change output format to desired standard")
-                    .long_about(
+                    .help("Change output format to desired standard")
+                    .long_help(
                         "Change output format to desired standard\n\
                     Formats are only available if you opted-IN at installation\n\
                     All the formats imdb-id can support are: json, yaml",
                     )
-                    // Clippy thinks this closure is redundant
                     .validator(|s| OutputFormat::try_from(s))
                     .takes_value(true),
             )
             .arg(
                 Arg::new("search_term")
-                    .about("The title of the movie/show you're looking for")
+                    .help("The title of the movie/show you're looking for")
                     .takes_value(true)
                     .multiple_values(true),
             )
             .arg(
                 Arg::new("api_key")
                     .long("api-key")
-                    .about("Your OMDb API key")
-                    .long_about("Your OMDb API key (overrides saved value if present)")
+                    .help("Your OMDb API key")
+                    .long_help("Your OMDb API key (overrides saved value if present)")
                     .takes_value(true),
             )
     }
