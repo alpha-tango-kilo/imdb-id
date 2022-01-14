@@ -9,7 +9,7 @@ Variants prefixed with "Clap" will be printed by Clap as such:
 error: Invalid value for '<arg>': <YOUR MESSAGE>
  */
 
-pub type Result<T> = std::result::Result<T, RunError>;
+pub type Result<T, E = RunError> = std::result::Result<T, E>;
 
 #[derive(Debug)]
 pub enum RunError {

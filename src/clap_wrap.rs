@@ -185,7 +185,7 @@ pub enum OutputFormat {
 impl TryFrom<&str> for OutputFormat {
     type Error = ClapError;
 
-    fn try_from(s: &str) -> std::result::Result<Self, ClapError> {
+    fn try_from(s: &str) -> Result<Self, ClapError> {
         let variant = match s.to_ascii_lowercase().as_str() {
             "human" | "plain" => Human,
             "json" => Json,
@@ -204,16 +204,16 @@ mod unit_tests {
     #[test]
     fn help() {
         let clap = RuntimeConfig::create_clap_app();
-        let m = clap
+        let err = clap
             .try_get_matches_from(vec![env!("CARGO_PKG_NAME"), "-h"])
             .unwrap_err();
-        assert_eq!(m.kind, clap::ErrorKind::DisplayHelp);
+        assert_eq!(err.kind, clap::ErrorKind::DisplayHelp);
 
         let clap = RuntimeConfig::create_clap_app();
-        let m = clap
+        let err = clap
             .try_get_matches_from(vec![env!("CARGO_PKG_NAME"), "--help"])
             .unwrap_err();
-        assert_eq!(m.kind, clap::ErrorKind::DisplayHelp);
+        assert_eq!(err.kind, clap::ErrorKind::DisplayHelp);
     }
 
     #[test]

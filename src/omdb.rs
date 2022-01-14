@@ -110,7 +110,7 @@ OMDb returns all values as JSON strings, even those that aren't, like ratings
 This helper can be given to serde to try and convert those elements to a more
 useful type, like u16 for years
  */
-fn de_stringified<'de, D, T>(d: D) -> std::result::Result<T, D::Error>
+fn de_stringified<'de, D, T>(d: D) -> Result<T, D::Error>
 where
     D: Deserializer<'de>,
     T: FromStr,
@@ -131,7 +131,7 @@ This helper throws that into a SmallVec<[String; 3]>
  */
 fn de_comma_list<'de, D>(
     d: D,
-) -> std::result::Result<SmallVec<[String; 3]>, D::Error>
+) -> Result<SmallVec<[String; 3]>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -153,7 +153,7 @@ pub fn search_by_title(api_key: &str, title: &str) -> Result<SearchResults> {
     }
 }
 
-pub fn test_api_key(api_key: &str) -> std::result::Result<(), String> {
+pub fn test_api_key(api_key: &str) -> Result<(), String> {
     if api_key.parse::<u32>().is_err() {
         return Err("Invalid API key format".into());
     }

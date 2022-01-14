@@ -35,7 +35,7 @@ impl OnDiskConfig {
         Ok(config)
     }
 
-    pub fn check(&self) -> std::result::Result<(), String> {
+    pub fn check(&self) -> Result<(), String> {
         test_api_key(&self.api_key)
     }
 

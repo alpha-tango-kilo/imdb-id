@@ -19,7 +19,6 @@ use std::num::ParseIntError;
 use std::str::FromStr;
 // Has to use different name or re-export of errors::Result wouldn't work
 use smallvec::SmallVec;
-use std::result::Result as StdResult;
 use Year::*;
 
 #[derive(Debug, Copy, Clone, Serialize)]
@@ -53,7 +52,7 @@ impl FromStr for Year {
     type Err = ParseIntError;
 
     // WARNING: not all separators are one byte, this must not be assumed!
-    fn from_str(year_str: &str) -> StdResult<Self, Self::Err> {
+    fn from_str(year_str: &str) -> Result<Self, Self::Err> {
         use std::mem;
         // e.g. -2021
         if year_str.starts_with(&Year::SEPARATORS[..]) {
@@ -99,7 +98,7 @@ impl FromStr for Year {
 }
 
 impl<'de> Deserialize<'de> for Year {
-    fn deserialize<D>(d: D) -> StdResult<Self, D::Error>
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
