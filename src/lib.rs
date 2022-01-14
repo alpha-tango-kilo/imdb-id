@@ -9,7 +9,6 @@ pub use clap_wrap::*;
 pub use errors::*;
 pub use filters::*;
 pub use persistent::*;
-pub use reqwest::blocking as reqwest;
 pub use user_input::{choose_result_from, get_api_key};
 
 use serde::de::Error;

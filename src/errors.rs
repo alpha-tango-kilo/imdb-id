@@ -16,7 +16,7 @@ pub enum RunError {
     Clap(ClapError),
     InvalidYearRange(ParseIntError),
     NoSearchResults,
-    Reqwest(reqwest::Error),
+    MinReq(minreq::Error),
     InputUserHalted,
     InputIo(io::Error),
     NoDesiredSearchResults,
@@ -37,7 +37,7 @@ impl RunError {
             Clap(_) => 1,
             InvalidYearRange(_) => 1,
             NoSearchResults => 1,
-            Reqwest(_) => 2,
+            MinReq(_) => 2,
             InputUserHalted => 1,
             InputIo(_) => 2,
             NoDesiredSearchResults => 0,
@@ -55,7 +55,7 @@ impl fmt::Display for RunError {
             Clap(clap_err) => write!(f, "Argument parsing problem: {}", clap_err),
             InvalidYearRange(err) => write!(f, "Invalid year / year range: {}", err),
             NoSearchResults => write!(f, "No search results"),
-            Reqwest(reqwest_err) => write!(f, "Issue with web request: {reqwest_err}"),
+            MinReq(minreq_err) => write!(f, "Issue with web request: {minreq_err}"),
             InputUserHalted => write!(f, "Program halted at user request"),
             InputIo(io_err) => write!(f, "IO error: {io_err}"),
             NoDesiredSearchResults => write!(f, "You couldn't find what you wanted :("),
@@ -83,9 +83,9 @@ impl From<ClapError> for RunError {
     }
 }
 
-impl From<reqwest::Error> for RunError {
-    fn from(reqwest_err: reqwest::Error) -> Self {
-        Reqwest(reqwest_err)
+impl From<minreq::Error> for RunError {
+    fn from(minreq_err: minreq::Error) -> Self {
+        MinReq(minreq_err)
     }
 }
 

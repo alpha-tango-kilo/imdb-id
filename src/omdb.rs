@@ -1,5 +1,5 @@
 use crate::{Result, RunError, Year};
-use reqwest::blocking::{Client, RequestBuilder};
+use minreq::Request;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize};
 use smallvec::SmallVec;
@@ -139,53 +139,30 @@ where
     Ok(s.split(", ").map(|s| s.into()).collect())
 }
 
-/*
-About using reqwest::blocking;
-From the tokio website, "When not to use Tokio"
-  - Sending a single web request. The place where Tokio gives you an advantage
-    is when you need to do many things at the same time. If you need to use a
-    library intended for asynchronous Rust such as reqwest, but you don't need
-    to do a lot of things at once, you should prefer the blocking version of
-    that library, as it will make your project simpler. Using Tokio will still
-    work, of course, but provides no real advantage over the blocking API
-- https://tokio.rs/tokio/tutorial
+pub fn search_by_title(api_key: &str, title: &str) -> Result<SearchResults> {
+    let title = urlencoding::encode(title);
+    let request = build_query(api_key).with_param("s", title);
+    let body = request.send()?;
+    let body = body.as_str()?;
 
-A note about the json feature of reqwest:
-While it does seem like it'd be useful, in reality it prevents access to the
-raw JSON response if the deserialisation fails. It also means I can't as
-specifically classify the type of error for packaging into RunError
- */
-
-pub fn search_by_title(
-    api_key: &str,
-    client: &Client,
-    title: &str,
-) -> Result<SearchResults> {
-    let request = build_query(client, api_key).query(&[("s", title)]);
-    let body = request.send()?.text()?;
-
-    let de = serde_json::from_str(&body)
-        .map_err(|err| RunError::OmdbUnrecognised(body, err))?;
+    let de = serde_json::from_str(body)
+        .map_err(|err| RunError::OmdbUnrecognised(body.to_owned(), err))?;
     match de {
         OmdbResult::Ok(s) => Ok(s),
         OmdbResult::Err(e) => Err(RunError::OmdbError(e.error)),
     }
 }
 
-pub fn test_api_key(
-    api_key: &str,
-    client: &Client,
-) -> std::result::Result<(), String> {
+pub fn test_api_key(api_key: &str) -> std::result::Result<(), String> {
     if api_key.parse::<u32>().is_err() {
         return Err("Invalid API key format".into());
     }
 
-    let status = client
-        .get("https://www.omdbapi.com/")
-        .query(&[("apikey", api_key)])
+    let status = minreq::get("https://www.omdbapi.com/")
+        .with_param("apikey", api_key)
         .send()
         .map_err(|e| e.to_string())?
-        .status();
+        .status_code;
 
     if status.eq(&200) {
         Ok(())
@@ -196,12 +173,13 @@ pub fn test_api_key(
     }
 }
 
-fn build_query(client: &Client, api_key: &str) -> RequestBuilder {
-    client
-        .get("https://www.omdbapi.com/")
+fn build_query(api_key: &str) -> Request {
+    minreq::get("https://www.omdbapi.com/")
+        .with_param("apikey", api_key)
         // Lock to API version 1 and return type JSON in case this changes in
         // future
-        .query(&[("apikey", api_key), ("v", "1"), ("r", "json")])
+        .with_param("v", "1")
+        .with_param("r", "json")
 }
 
 #[cfg(test)]
@@ -290,7 +268,6 @@ mod unit_tests {
 
     #[test]
     fn api_key_u32_check() {
-        let client = reqwest::blocking::Client::new();
-        test_api_key("foo", &client).unwrap_err();
+        test_api_key("foo").unwrap_err();
     }
 }

@@ -1,6 +1,6 @@
 use crate::omdb::test_api_key;
+use crate::Result;
 use crate::RunError::InputUserHalted;
-use crate::{reqwest, Result};
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Input, Select};
 use lazy_static::lazy_static;
@@ -11,10 +11,10 @@ lazy_static! {
     static ref THEME: ColorfulTheme = Default::default();
 }
 
-pub fn get_api_key(client: &reqwest::Client) -> Result<String> {
+pub fn get_api_key() -> Result<String> {
     let api_key = Input::with_theme(THEME.deref())
         .with_prompt("Please enter in your OMDb API key. If you need to, visit their website to get one (https://www.omdbapi.com/apikey.aspx)")
-        .validate_with(|api_key: &String| test_api_key(api_key, client))
+        .validate_with(|api_key: &String| test_api_key(api_key))
         .interact_text()?;
     Ok(api_key)
 }

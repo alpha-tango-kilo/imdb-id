@@ -12,7 +12,6 @@ fn main() {
 
 fn app() -> Result<()> {
     let runtime_config = RuntimeConfig::new()?;
-    let client = reqwest::Client::new();
     // If an API key is given using the --api-key arg, prefer this over stored
     // value
     let disk_config = match runtime_config.api_key {
@@ -20,18 +19,16 @@ fn app() -> Result<()> {
             let mut config = OnDiskConfig {
                 api_key: api_key.clone(),
             };
-            config.validate(&client)?;
+            config.validate()?;
             config
         }
         None => match OnDiskConfig::load() {
             Ok(mut config) => {
-                config.validate(&client)?;
+                config.validate()?;
                 config
             }
             Err(e) => match e.kind() {
-                io::ErrorKind::NotFound => {
-                    OnDiskConfig::new_from_prompt(&client)?
-                }
+                io::ErrorKind::NotFound => OnDiskConfig::new_from_prompt()?,
                 _ => return Err(e.into()),
             },
         },
@@ -39,7 +36,6 @@ fn app() -> Result<()> {
 
     let search_results = omdb::search_by_title(
         &disk_config.api_key,
-        &client,
         &runtime_config.search_term,
     )?;
 
