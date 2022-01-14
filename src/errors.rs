@@ -55,22 +55,21 @@ impl fmt::Display for RunError {
             Clap(clap_err) => write!(f, "Argument parsing problem: {}", clap_err),
             InvalidYearRange(err) => write!(f, "Invalid year / year range: {}", err),
             NoSearchResults => write!(f, "No search results"),
-            Reqwest(reqwest_err) => write!(f, "Issue with web request: {}", reqwest_err),
+            Reqwest(reqwest_err) => write!(f, "Issue with web request: {reqwest_err}"),
             InputUserHalted => write!(f, "Program halted at user request"),
-            InputIo(io_err) => write!(f, "IO error: {}", io_err),
+            InputIo(io_err) => write!(f, "IO error: {io_err}"),
             NoDesiredSearchResults => write!(f, "You couldn't find what you wanted :("),
-            Serde(e) => write!(f, "Failed to serialise output data: {}", e),
+            Serde(e) => write!(f, "Failed to serialise output data: {e}"),
             OmdbNotFound(search_term) => write!(f, "No record found on OMDb for {:?}", search_term),
             OmdbError(response) => write!(f, "OMDb API returned an error: {:?}", response),
             OmdbUnrecognised(json, err) => write!(
                 f,
                 "Unrecognised response from OMDb, please raise an issue including the following text:\n\
-                Serde error: {}\n\
+                Serde error: {err}\n\
                 JSON: \n\
                 ```\n\
-                {}\n\
-                ```",
-                err, json
+                {json}\n\
+                ```"
             ),
         }
     }

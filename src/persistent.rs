@@ -42,7 +42,7 @@ impl OnDiskConfig {
 
     pub fn validate(&mut self, client: &Client) -> Result<()> {
         if let Err(why) = self.check(client) {
-            eprintln!("{}", why);
+            eprintln!("{why}");
             self.api_key = get_api_key(client)?;
         }
         Ok(())

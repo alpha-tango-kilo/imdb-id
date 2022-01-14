@@ -122,14 +122,14 @@ impl fmt::Display for Year {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use Year::*;
         match self {
-            Single(y) => write!(f, "{}", y),
+            Single(y) => write!(f, "{y}"),
             Range { start, end } => {
                 if let Some(n) = start {
-                    write!(f, "{}", n)?;
+                    write!(f, "{n}")?;
                 }
                 write!(f, "-")?;
                 if let Some(n) = end {
-                    write!(f, "{}", n)?;
+                    write!(f, "{n}")?;
                 }
                 Ok(())
             }

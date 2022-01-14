@@ -5,7 +5,7 @@ use std::{io, process};
 
 fn main() {
     if let Err(why) = app() {
-        eprintln!("Error: {}", why);
+        eprintln!("Error: {why}");
         process::exit(why.error_code());
     }
 }
@@ -52,7 +52,7 @@ fn app() -> Result<()> {
             {
                 let search_result = search_results.entries.get(0).unwrap();
                 if runtime_config.interactive {
-                    eprintln!("Only one result; {}", search_result);
+                    eprintln!("Only one result; {search_result}");
                 }
                 println!("{}", search_result.imdb_id);
             } else {
@@ -74,7 +74,7 @@ fn app() -> Result<()> {
             let json = serde_json::to_string_pretty(
                 &search_results.entries[..end_index],
             )?;
-            println!("{}", json);
+            println!("{json}");
         }
         #[cfg(feature = "yaml")]
         Yaml => {
@@ -84,7 +84,7 @@ fn app() -> Result<()> {
             );
             let yaml =
                 serde_yaml::to_string(&search_results.entries[..end_index])?;
-            println!("{}", yaml);
+            println!("{yaml}");
         }
     }
 

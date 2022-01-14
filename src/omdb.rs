@@ -192,7 +192,7 @@ pub fn test_api_key(
     } else if status.eq(&401) {
         Err(String::from("Unauthorised API key, please edit your input"))
     } else {
-        Err(format!("Unexpected response: {}", status))
+        Err(format!("Unexpected response: {status}"))
     }
 }
 
