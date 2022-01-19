@@ -4,16 +4,12 @@ use std::error::Error;
 use std::num::ParseIntError;
 use RunError::*;
 
-/*
-Variants prefixed with "Clap" will be printed by Clap as such:
-error: Invalid value for '<arg>': <YOUR MESSAGE>
- */
-
 pub type Result<T, E = RunError> = std::result::Result<T, E>;
 
 #[derive(Debug)]
 pub enum RunError {
     Clap(ClapError),
+    InvalidGenre(String),
     InvalidYearRange(ParseIntError),
     NoSearchResults,
     MinReq(minreq::Error),
@@ -22,7 +18,7 @@ pub enum RunError {
     NoDesiredSearchResults,
     Serde(Box<dyn Error>),
     OmdbNotFound(String), // search term
-    OmdbError(String),    // "Error" field of response
+    OmdbError(String), // "Error" field of response
     OmdbUnrecognised(String, serde_json::Error), // raw response JSON
 }
 
@@ -35,6 +31,7 @@ impl RunError {
          */
         match self {
             Clap(_) => 1,
+            InvalidGenre(_) => 1,
             InvalidYearRange(_) => 1,
             NoSearchResults => 1,
             MinReq(_) => 2,
@@ -53,6 +50,7 @@ impl fmt::Display for RunError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Clap(clap_err) => write!(f, "Argument parsing problem: {}", clap_err),
+            InvalidGenre(genre) => write!(f, "Unsupported genre: {genre}"),
             InvalidYearRange(err) => write!(f, "Invalid year / year range: {}", err),
             NoSearchResults => write!(f, "No search results"),
             MinReq(minreq_err) => write!(f, "Issue with web request: {minreq_err}"),
@@ -107,6 +105,11 @@ impl From<serde_yaml::Error> for RunError {
         Serde(Box::new(ser_err))
     }
 }
+
+/*
+Will be printed by Clap as such:
+error: Invalid value for '<arg>': <YOUR MESSAGE>
+ */
 
 #[derive(Debug, Copy, Clone)]
 pub enum ClapError {

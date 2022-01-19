@@ -1,6 +1,6 @@
 use crate::omdb::SearchResult;
-use crate::RunError::InvalidYearRange;
-use crate::{Result, Year};
+use crate::RunError::{InvalidYearRange};
+use crate::{Genre, Result, Year};
 use clap::ArgMatches;
 use smallvec::{smallvec, SmallVec};
 use std::str::FromStr;
@@ -8,7 +8,7 @@ use std::str::FromStr;
 #[derive(Debug)]
 #[cfg_attr(test, derive(Eq, PartialEq))]
 pub struct Filters {
-    genres: SmallVec<[String; 3]>,
+    genres: SmallVec<[Genre; 3]>,
     years: Option<Year>,
 }
 
@@ -16,7 +16,9 @@ impl Filters {
     pub fn new(clap_matches: &ArgMatches) -> Result<Self> {
         let mut genres = SmallVec::new();
         if let Some(vs) = clap_matches.values_of("filter_genre") {
-            vs.for_each(|s| genres.push(s.into()));
+            for v in vs {
+                genres.push(Genre::from_str(v)?);
+            }
         }
 
         let years = match clap_matches.value_of("filter_year") {
@@ -55,7 +57,7 @@ impl Filters {
 
         let genre_matches = self.genres.is_empty()
             || self.genres.iter().any(|allowed_genre| {
-                search_result.media_type.eq_ignore_ascii_case(allowed_genre)
+                allowed_genre.eq(search_result.media_type.as_str())
             });
         //println!("{:?}\n^ year matches: {}, genre matches: {}", search_result, year_matches, genre_matches);
         year_matches && genre_matches
@@ -76,6 +78,7 @@ mod unit_tests {
     mod creation {
         use crate::{Filters, RuntimeConfig, Year, Year::*};
         use smallvec::smallvec;
+        use crate::Genre::*;
 
         #[test]
         fn genre() {
@@ -84,14 +87,14 @@ mod unit_tests {
                 .try_get_matches_from(vec![
                     env!("CARGO_PKG_NAME"),
                     "-g",
-                    "TV Episode",
+                    "episode",
                 ])
                 .unwrap();
             let filters = Filters::new(&clap_matches).unwrap();
             assert_eq!(
                 filters,
                 Filters {
-                    genres: smallvec!["TV Episode".into()],
+                    genres: smallvec![Episode],
                     years: None,
                 }
             );
@@ -101,7 +104,7 @@ mod unit_tests {
                 .try_get_matches_from(vec![
                     env!("CARGO_PKG_NAME"),
                     "-g",
-                    "TV Episode",
+                    "Episode",
                     "Movie",
                 ])
                 .unwrap();
@@ -109,7 +112,7 @@ mod unit_tests {
             assert_eq!(
                 filters,
                 Filters {
-                    genres: smallvec!["TV Episode".into(), "Movie".into()],
+                    genres: smallvec![Episode, Movie],
                     years: None,
                 }
             );
@@ -228,14 +231,14 @@ mod unit_tests {
                     "1980-2010",
                     "-g",
                     "Movie",
-                    "Video",
+                    "episode",
                 ])
                 .unwrap();
             let filters = Filters::new(&clap_matches).unwrap();
             assert_eq!(
                 filters,
                 Filters {
-                    genres: smallvec!["Movie".into(), "Video".into()],
+                    genres: smallvec![Movie, Episode],
                     years: Some(Year::Range {
                         start: Some(1980),
                         end: Some(2010),
@@ -250,6 +253,7 @@ mod unit_tests {
         use crate::{Filters, Year};
         use once_cell::sync::Lazy;
         use smallvec::smallvec;
+        use crate::Genre::*;
 
         const TEST_DATA_SIZE: usize = 12;
 
@@ -259,19 +263,19 @@ mod unit_tests {
                     SearchResult {
                         title: "Kingsman: The Secret Service".into(),
                         imdb_id: "tt2802144".into(),
-                        media_type: "Movie".into(),
+                        media_type: Movie,
                         year: Year::Single(2014),
                     },
                     SearchResult {
                         title: "The King's Man".into(),
                         imdb_id: "tt6856242".into(),
-                        media_type: "Movie".into(),
+                        media_type: Movie,
                         year: Year::Single(2021),
                     },
                     SearchResult {
                         title: "Kingsman: The Golden Circle".into(),
                         imdb_id: "tt4649466".into(),
-                        media_type: "Movie".into(),
+                        media_type: Movie,
                         year: Year::Single(2017),
                     },
                     SearchResult {
@@ -296,13 +300,13 @@ mod unit_tests {
                     SearchResult {
                         title: "King's Man".into(),
                         imdb_id: "tt1582211".into(),
-                        media_type: "Movie".into(),
+                        media_type: Movie,
                         year: Year::Single(2010),
                     },
                     SearchResult {
                         title: "All the King's Men".into(),
                         imdb_id: "tt0405676".into(),
-                        media_type: "Movie".into(),
+                        media_type: Movie,
                         year: Year::Single(2006),
                     },
                     SearchResult {
@@ -314,13 +318,13 @@ mod unit_tests {
                     SearchResult {
                         title: "All the King's Men".into(),
                         imdb_id: "tt0041113".into(),
-                        media_type: "Movie".into(),
+                        media_type: Movie,
                         year: Year::Single(1949),
                     },
                     SearchResult {
                         title: "Black Mirror".into(),
                         imdb_id: "tt2085059".into(),
-                        media_type: "Series".into(),
+                        media_type: Series,
                         year: Year::Range {
                             start: Some(2016),
                             end: None,
@@ -329,7 +333,7 @@ mod unit_tests {
                     SearchResult {
                         title: "Seinfeld".into(),
                         imdb_id: "tt0098904".into(),
-                        media_type: "Series".into(),
+                        media_type: Series,
                         year: Year::Range {
                             start: Some(1989),
                             end: Some(1998),
@@ -364,7 +368,7 @@ mod unit_tests {
         #[test]
         fn genre_single() {
             let test = Filters {
-                genres: smallvec!["Movie".into()],
+                genres: smallvec![Movie],
                 years: None,
             };
             let results = [
@@ -387,7 +391,7 @@ mod unit_tests {
         #[test]
         fn genre_multiple() {
             let test = Filters {
-                genres: smallvec!["Movie".into(), "Video".into()],
+                genres: smallvec![Movie, "Video".into()],
                 years: None,
             };
             let results = [
@@ -462,7 +466,7 @@ mod unit_tests {
         #[test]
         fn mixed() {
             let test = Filters {
-                genres: smallvec!["Movie".into()],
+                genres: smallvec![Movie],
                 years: Some(Year::Range {
                     start: Some(1950),
                     end: Some(2010),
@@ -475,7 +479,7 @@ mod unit_tests {
             assert_eq!(&get_outcomes(&test), &results);
 
             let test = Filters {
-                genres: smallvec!["Movie".into(), "TV Episode".into()],
+                genres: smallvec![Movie, "TV Episode".into()],
                 years: Some(Year::Range {
                     start: Some(2010),
                     end: None,

@@ -1,4 +1,4 @@
-use crate::{Result, RunError, Year};
+use crate::{Genre, Result, RunError, Year};
 use minreq::Request;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -47,7 +47,7 @@ pub struct SearchResult {
     #[serde(rename(deserialize = "imdbID"))]
     pub imdb_id: String,
     #[serde(rename(deserialize = "Type"))]
-    pub media_type: String,
+    pub media_type: Genre,
 }
 
 impl fmt::Display for SearchResult {
@@ -56,6 +56,7 @@ impl fmt::Display for SearchResult {
     }
 }
 
+// TODO: this isn't used
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all(deserialize = "PascalCase"))]
 pub struct Entry {

@@ -20,6 +20,7 @@ use std::str::FromStr;
 // Has to use different name or re-export of errors::Result wouldn't work
 use smallvec::SmallVec;
 use Year::*;
+use Genre::*;
 
 #[derive(Debug, Copy, Clone, Serialize)]
 // Serialise using Display impl by using it in impl Into<String>
@@ -132,6 +133,65 @@ impl fmt::Display for Year {
                 Ok(())
             }
         }
+    }
+}
+
+// These are the OMDb API supported genres to filter by
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+#[cfg_attr(test, derive(Eq, PartialEq))]
+pub enum Genre {
+    Movie,
+    Series,
+    Episode,
+    Other(String),
+}
+
+impl Genre {
+    fn as_str(&self) -> &str {
+        self.as_ref()
+    }
+}
+
+impl AsRef<str> for Genre {
+    fn as_ref(&self) -> &str {
+        match self {
+            Movie => "movie",
+            Series => "series",
+            Episode => "episode",
+            Other(s) => s,
+        }
+    }
+}
+
+impl FromStr for Genre {
+    type Err = RunError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "movie" => Ok(Movie),
+            "series" => Ok(Series),
+            "episode" => Ok(Episode),
+            _ => Err(RunError::InvalidGenre(s.to_owned()))
+        }
+    }
+}
+
+impl From<&str> for Genre {
+    fn from(s: &str) -> Self {
+        Self::from_str(s).unwrap_or_else(|_| Other(s.to_owned()))
+    }
+}
+
+impl PartialEq<str> for Genre {
+    fn eq(&self, other: &str) -> bool {
+        other.eq_ignore_ascii_case(self.as_str())
+    }
+}
+
+impl fmt::Display for Genre {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.as_ref())
     }
 }
 

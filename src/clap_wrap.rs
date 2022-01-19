@@ -47,15 +47,12 @@ impl RuntimeConfig {
                 Arg::new("filter_genre")
                     .short('g')
                     .long("genre")
-                    .help("Filters results to a specific genre")
+                    .help("Filters results to a specific genre (movie, series, episode)")
                     .long_help(
-                        "Filters results to a specific genre\n\
+                        "Filters results to a specific genre (movie, series, episode)\n\
                     Can be given multiple arguments or passed multiple times, \
                     working as a chain of OR statements logically. \
-                    Filters are all case insensitive\n\
-                    It is STRONGLY recommended you quote genres, as most have \
-                    spaces\n\
-                    Examples: Movie, \"TV episode\", \"TV series\"",
+                    Filters are all case insensitive",
                     )
                     .takes_value(true)
                     .multiple_values(true)
