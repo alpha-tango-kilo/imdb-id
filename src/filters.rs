@@ -1,5 +1,5 @@
 use crate::omdb::SearchResult;
-use crate::RunError::{InvalidYearRange};
+use crate::RunError::InvalidYearRange;
 use crate::{Genre, Result, Year};
 use clap::ArgMatches;
 use smallvec::{smallvec, SmallVec};
@@ -76,9 +76,9 @@ impl Default for Filters {
 #[cfg(test)]
 mod unit_tests {
     mod creation {
+        use crate::Genre::*;
         use crate::{Filters, RuntimeConfig, Year, Year::*};
         use smallvec::smallvec;
-        use crate::Genre::*;
 
         #[test]
         fn genre() {
@@ -250,10 +250,10 @@ mod unit_tests {
 
     mod filtering {
         use crate::omdb::SearchResult;
+        use crate::Genre::*;
         use crate::{Filters, Year};
         use once_cell::sync::Lazy;
         use smallvec::smallvec;
-        use crate::Genre::*;
 
         const TEST_DATA_SIZE: usize = 12;
 

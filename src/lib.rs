@@ -19,8 +19,8 @@ use std::num::ParseIntError;
 use std::str::FromStr;
 // Has to use different name or re-export of errors::Result wouldn't work
 use smallvec::SmallVec;
-use Year::*;
 use Genre::*;
+use Year::*;
 
 #[derive(Debug, Copy, Clone, Serialize)]
 // Serialise using Display impl by using it in impl Into<String>
@@ -172,7 +172,7 @@ impl FromStr for Genre {
             "movie" => Ok(Movie),
             "series" => Ok(Series),
             "episode" => Ok(Episode),
-            _ => Err(RunError::InvalidGenre(s.to_owned()))
+            _ => Err(RunError::InvalidGenre(s.to_owned())),
         }
     }
 }
@@ -198,7 +198,8 @@ impl fmt::Display for Genre {
 // Serialize with Genre.as_str
 impl Serialize for Genre {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where S: Serializer
+    where
+        S: Serializer,
     {
         serializer.serialize_str(self.as_str())
     }
@@ -207,7 +208,8 @@ impl Serialize for Genre {
 // Deserialize with From<str> for Genre
 impl<'de> Deserialize<'de> for Genre {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where D: Deserializer<'de>
+    where
+        D: Deserializer<'de>,
     {
         String::deserialize(deserializer).map(|s| Genre::from(s.as_str()))
     }
