@@ -12,7 +12,7 @@ pub use persistent::*;
 pub use user_input::{choose_result_from, get_api_key};
 
 use serde::de::Error;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 use std::iter::FromIterator;
 use std::num::ParseIntError;
@@ -137,8 +137,8 @@ impl fmt::Display for Year {
 }
 
 // These are the OMDb API supported genres to filter by
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
+// Serialize and Deserialize and implemented by hand
+#[derive(Debug, Clone)]
 #[cfg_attr(test, derive(Eq, PartialEq))]
 pub enum Genre {
     Movie,
@@ -192,6 +192,24 @@ impl PartialEq<str> for Genre {
 impl fmt::Display for Genre {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.as_ref())
+    }
+}
+
+// Serialize with Genre.as_str
+impl Serialize for Genre {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where S: Serializer
+    {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+// Deserialize with From<str> for Genre
+impl<'de> Deserialize<'de> for Genre {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where D: Deserializer<'de>
+    {
+        String::deserialize(deserializer).map(|s| Genre::from(s.as_str()))
     }
 }
 
