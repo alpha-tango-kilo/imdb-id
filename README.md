@@ -2,7 +2,7 @@
 
 [![Codeberg CI](https://ci.codeberg.org/api/badges/alpha-tango-kilo/imdb-id/status.svg)](https://ci.codeberg.org/alpha-tango-kilo/imdb-id)
 [![Crates.io](https://img.shields.io/crates/v/imdb-id.svg)](https://crates.io/crates/imdb-id)
-[![Dependencies](https://deps.rs/repo/github/alpha-tango-kilo/imdb-id/status.svg)](https://deps.rs/repo/github/alpha-tango-kilo/imdb-id)
+[![Dependencies](https://deps.rs/repo/codeberg/alpha-tango-kilo/imdb-id/status.svg)](https://deps.rs/repo/codeberg/alpha-tango-kilo/imdb-id)
 
 An easy-to-use commandline tool to look up the IMDb ID of a movie or show, given its name
 
