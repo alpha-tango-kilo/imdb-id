@@ -34,14 +34,20 @@ fn app() -> Result<()> {
         },
     };
 
-    let search_results = omdb::search_by_title(
+    let mut search_results = omdb::search_by_title(
         &disk_config.api_key,
         &runtime_config.search_term,
     )?;
+    // Actually do filtering lol
+    search_results
+        .entries
+        .retain(|entry| runtime_config.filters.allows(entry));
 
     match runtime_config.format {
         Human => {
             if search_results.entries.is_empty() {
+                // This isn't run otherwise due to the immediate return
+                disk_config.save()?;
                 return Err(RunError::NoSearchResults);
             } else if !runtime_config.interactive
                 || search_results.entries.len() == 1
