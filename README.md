@@ -37,47 +37,43 @@ For a nicer solution to updating any Rust programs you have installed through Ca
 
 ```
 USAGE:
-    imdb-id [FLAGS] [OPTIONS] [--] [search_term]...
+    imdb-id [OPTIONS] [--] [search_term]...
 
 ARGS:
     <search_term>...
             The title of the movie/show you're looking for
 
-FLAGS:
-    -h, --help
-            Prints help information
-
-    -n, --non-interactive
-            Disables interactive features (always picks the first result)
-
-    -V, --version
-            Prints version information
-
-
 OPTIONS:
         --api-key <api_key>
             Your OMDb API key (overrides saved value if present)
-
-    -g, --genre <filter_genre>...
-            Filters results to a specific genre
-            Can be given multiple arguments or passed multiple times, working as a chain of OR
-            statements logically. Filters are all case insensitive
-            It is STRONGLY recommended you quote genres, as most have spaces
-            Examples: Movie, "TV episode", "TV series"
-
-    -y, --year <filter_year>
-            Filters results to a specific year, or range of years
-            Media which has no year specified will always be included
-            Ranges are fully inclusive
-            Examples: 2021, 1990-2000, 2000- (2000 onwards), -2000 (before 2000)
 
     -f, --format <format>
             Change output format to desired standard
             Formats are only available if you opted-IN at installation
             All the formats imdb-id can support are: json, yaml
 
+    -g, --genre <filter_genre>...
+            Filters results to a specific genre (movie, series, episode)
+            Can be given multiple arguments or passed multiple times, working as a chain of OR
+            statements logically. Filters are all case insensitive
+
+    -h, --help
+            Print help information
+
+    -n, --non-interactive
+            Disables interactive features (always picks the first result)
+
     -r, --results <number_of_results>
             The maximum number of results to show from IMDb
+
+    -V, --version
+            Print version information
+
+    -y, --year <filter_year>
+            Filters results to a specific year, or range of years
+            Media which has no year specified will always be included
+            Ranges are fully inclusive
+            Examples: 2021, 1990-2000, 2000- (2000 onwards), -2000 (before 2000)
 ```
 
 ### Format support
