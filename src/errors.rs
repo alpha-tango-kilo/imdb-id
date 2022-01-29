@@ -17,11 +17,8 @@ pub enum RunError {
     NoSearchResults,
     #[error("Issue with web request: {0}")]
     MinReq(#[from] minreq::Error),
-    #[error("Program halted at user request")]
-    InputUserHalted,
     #[error("IO error: {0}")]
     InputIo(#[from] std::io::Error),
-    // TODO: is this even used?
     #[error("You couldn't find what you wanted :(")]
     NoDesiredSearchResults,
     #[error("Failed to serialise output data: {0}")]
@@ -47,7 +44,6 @@ impl RunError {
             InvalidYearRange(_) => 1,
             NoSearchResults => 1,
             MinReq(_) => 2,
-            InputUserHalted => 1,
             InputIo(_) => 2,
             NoDesiredSearchResults => 0,
             Serde(_) => 2,

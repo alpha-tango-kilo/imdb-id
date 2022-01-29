@@ -1,6 +1,6 @@
 use crate::omdb::test_api_key;
 use crate::Result;
-use crate::RunError::InputUserHalted;
+use crate::RunError::NoDesiredSearchResults;
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Input, Select};
 use lazy_static::lazy_static;
@@ -34,5 +34,5 @@ pub fn choose_result_from<E: Display>(entries: &[E]) -> Result<&E> {
         .items(entries)
         .interact_opt()?
         .map(|index| &entries[index])
-        .ok_or(InputUserHalted)
+        .ok_or(NoDesiredSearchResults)
 }
