@@ -1,25 +1,37 @@
-use std::{fmt, io};
-
 use std::error::Error;
 use std::num::ParseIntError;
+use thiserror::Error;
 use RunError::*;
 
 pub type Result<T, E = RunError> = std::result::Result<T, E>;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum RunError {
-    Clap(ClapError),
+    #[error("Argument parsing problem: {0}")]
+    Clap(#[from] ClapError),
+    #[error("Unsupported genre: {0}")]
     InvalidGenre(String),
-    InvalidYearRange(ParseIntError),
+    #[error("Invalid year / year range: {0}")]
+    InvalidYearRange(#[from] ParseIntError),
+    #[error("No search results")]
     NoSearchResults,
-    MinReq(minreq::Error),
+    #[error("Issue with web request: {0}")]
+    MinReq(#[from] minreq::Error),
+    #[error("Program halted at user request")]
     InputUserHalted,
-    InputIo(io::Error),
+    #[error("IO error: {0}")]
+    InputIo(#[from] std::io::Error),
+    // TODO: is this even used?
+    #[error("You couldn't find what you wanted :(")]
     NoDesiredSearchResults,
-    Serde(Box<dyn Error>),
+    #[error("Failed to serialise output data: {0}")]
+    Serde(#[source] Box<dyn Error>),
+    #[error("No record found on OMDb for {0:?}")]
     OmdbNotFound(String), // search term
-    OmdbError(String),    // "Error" field of response
-    OmdbUnrecognised(String, serde_json::Error), // raw response JSON
+    #[error("OMDb API returned an error: {0:?}")]
+    OmdbError(String), // "Error" field of response
+    #[error("Unrecognised response from OMDb, please raise an issue including the following text:\nSerde error: {0}\nJSON: \n```\n{1}\n```")]
+    OmdbUnrecognised(String, #[source] serde_json::Error), // raw response JSON
 }
 
 impl RunError {
@@ -46,53 +58,6 @@ impl RunError {
     }
 }
 
-impl fmt::Display for RunError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Clap(clap_err) => write!(f, "Argument parsing problem: {}", clap_err),
-            InvalidGenre(genre) => write!(f, "Unsupported genre: {genre}"),
-            InvalidYearRange(err) => write!(f, "Invalid year / year range: {}", err),
-            NoSearchResults => write!(f, "No search results"),
-            MinReq(minreq_err) => write!(f, "Issue with web request: {minreq_err}"),
-            InputUserHalted => write!(f, "Program halted at user request"),
-            InputIo(io_err) => write!(f, "IO error: {io_err}"),
-            NoDesiredSearchResults => write!(f, "You couldn't find what you wanted :("),
-            Serde(e) => write!(f, "Failed to serialise output data: {e}"),
-            OmdbNotFound(search_term) => write!(f, "No record found on OMDb for {:?}", search_term),
-            OmdbError(response) => write!(f, "OMDb API returned an error: {:?}", response),
-            OmdbUnrecognised(json, err) => write!(
-                f,
-                "Unrecognised response from OMDb, please raise an issue including the following text:\n\
-                Serde error: {err}\n\
-                JSON: \n\
-                ```\n\
-                {json}\n\
-                ```"
-            ),
-        }
-    }
-}
-
-impl Error for RunError {}
-
-impl From<ClapError> for RunError {
-    fn from(clap_err: ClapError) -> Self {
-        Clap(clap_err)
-    }
-}
-
-impl From<minreq::Error> for RunError {
-    fn from(minreq_err: minreq::Error) -> Self {
-        MinReq(minreq_err)
-    }
-}
-
-impl From<io::Error> for RunError {
-    fn from(io_err: io::Error) -> Self {
-        InputIo(io_err)
-    }
-}
-
 impl From<serde_json::Error> for RunError {
     fn from(ser_err: serde_json::Error) -> Self {
         Serde(Box::new(ser_err))
@@ -111,25 +76,10 @@ Will be printed by Clap as such:
 error: Invalid value for '<arg>': <YOUR MESSAGE>
  */
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Error)]
 pub enum ClapError {
+    #[error("expected a positive integer")]
     NotUsize,
+    #[error("invalid format\nIf you think this should have worked, please ensure you installed the tool with the required features\nSee the project README for more information")]
     InvalidFormat,
 }
-
-impl fmt::Display for ClapError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use ClapError::*;
-        match self {
-            NotUsize => write!(f, "expected a positive integer"),
-            InvalidFormat => write!(
-                f,
-                "invalid format\nIf you think this should have \
-            worked, please ensure you installed the tool with the required features\n\
-            See the project README for more information"
-            ),
-        }
-    }
-}
-
-impl Error for ClapError {}
