@@ -1,7 +1,19 @@
-use imdb_id::OutputFormat::*;
-use imdb_id::*;
+mod clap_wrap;
+mod errors;
+mod filters;
+pub mod omdb;
+mod persistent;
+mod user_input;
+
+pub use clap_wrap::*;
+pub use errors::*;
+pub use filters::*;
+pub use persistent::*;
+pub use user_input::{choose_result_from, get_api_key};
+
 use std::cmp::min;
 use std::{io, process};
+use OutputFormat::*;
 
 fn main() {
     if let Err(why) = app() {
