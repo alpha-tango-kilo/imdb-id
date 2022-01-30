@@ -1,21 +1,30 @@
 use crate::omdb::SearchResult;
-use crate::RunError::InvalidYearRange;
-use crate::{Result, RunError};
+use crate::{Result, RunError, YearParseError};
 use clap::ArgMatches;
+use lazy_static::lazy_static;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use smallvec::{smallvec, SmallVec};
 use std::fmt;
-use std::num::ParseIntError;
+use std::ops::RangeInclusive;
 use std::str::FromStr;
 use Genre::*;
-use Year::*;
+
+lazy_static! {
+    // I'm so sorry, this is my compromise for easily getting the current year
+    static ref CURRENT_YEAR: u16 = {
+        use std::time::SystemTime;
+        let timestamp = humantime::format_rfc3339(SystemTime::now())
+            .to_string();
+        timestamp.split_once('-').unwrap().0.parse().expect("Bad current year")
+    };
+}
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(Eq, PartialEq))]
 pub struct Filters {
-    genres: SmallVec<[Genre; 3]>,
-    years: Option<Year>,
+    pub genres: SmallVec<[Genre; 3]>,
+    pub years: Option<Year>,
 }
 
 impl Filters {
@@ -28,9 +37,7 @@ impl Filters {
         }
 
         let years = match clap_matches.value_of("filter_year") {
-            Some(year_str) => {
-                Some(Year::from_str(year_str).map_err(InvalidYearRange)?)
-            }
+            Some(year_str) => Year::from_str(year_str)?.into(),
             None => None,
         };
 
@@ -39,25 +46,7 @@ impl Filters {
 
     pub fn allows(&self, search_result: &SearchResult) -> bool {
         let year_matches = match &self.years {
-            Some(year) => match (year, &search_result.year) {
-                (Year::Single(a), Year::Single(b)) => a == b,
-                (
-                    Year::Range { start: None, .. },
-                    Year::Range { start: None, .. },
-                ) => true,
-                (
-                    Year::Range { end: None, .. },
-                    Year::Range { end: None, .. },
-                ) => true,
-                (Year::Range { .. }, Year::Range { start, end }) => {
-                    start.map_or(false, |s| year.contains(s))
-                        || end.map_or(false, |s| year.contains(s))
-                }
-                (Year::Single(a), Year::Range { .. }) => {
-                    search_result.year.contains(*a)
-                }
-                (Year::Range { .. }, Year::Single(b)) => year.contains(*b),
-            },
+            Some(year) => year.contains(&search_result.year),
             None => true,
         };
 
@@ -79,79 +68,67 @@ impl Default for Filters {
     }
 }
 
-#[derive(Debug, Copy, Clone, Serialize)]
-// Serialise using Display impl by using it in impl Into<String>
-#[serde(into = "String")]
+// Limitation: series' are assumed to end in the current year
+// Fortunately due to the Display impl the user won't see this
+#[derive(Debug, Clone)]
 #[cfg_attr(test, derive(Eq, PartialEq))]
-pub enum Year {
-    Single(u16),
-    // start and end should never both be None
-    Range {
-        start: Option<u16>,
-        end: Option<u16>,
-    },
-}
+pub struct Year(pub(crate) RangeInclusive<u16>);
 
 impl Year {
     const SEPARATORS: [char; 2] = ['-', '–'];
 
-    pub fn contains(&self, year: u16) -> bool {
-        match *self {
-            Single(n) => n == year,
-            Range { start, end } => {
-                start.map_or(true, |n| year >= n)
-                    && end.map_or(true, |n| year <= n)
+    pub fn contains(&self, year: &Year) -> bool {
+        self.0.start() <= year.0.end() && year.0.start() <= self.0.end()
+    }
+
+    fn is_single(&self) -> bool {
+        self.0.start() == self.0.end()
+    }
+}
+
+impl FromStr for Year {
+    type Err = YearParseError;
+
+    // WARNING: not all separators are one byte, this must not be assumed!
+    fn from_str(year_str: &str) -> Result<Self, Self::Err> {
+        use YearParseError::*;
+
+        match year_str.split_once(&Year::SEPARATORS[..]) {
+            Some((start_str, end_str)) => {
+                let mut start = if !start_str.is_empty() {
+                    u16::from_str(start_str)?
+                } else {
+                    0
+                };
+                let mut end = if !end_str.is_empty() {
+                    u16::from_str(end_str)?
+                } else if start_str.is_empty() {
+                    return Err(NoYearsSpecified);
+                } else {
+                    *CURRENT_YEAR
+                };
+                // Save the user from their silliness
+                if end < start {
+                    use std::mem;
+                    mem::swap(&mut start, &mut end);
+                }
+                Ok(Year(start..=end))
+            }
+            None => {
+                // Should be just a year we can parse
+                let year = u16::from_str(year_str)?;
+                Ok(Year(year..=year))
             }
         }
     }
 }
 
-impl FromStr for Year {
-    type Err = ParseIntError;
-
-    // WARNING: not all separators are one byte, this must not be assumed!
-    fn from_str(year_str: &str) -> Result<Self, Self::Err> {
-        use std::mem;
-        // e.g. -2021
-        if year_str.starts_with(&Year::SEPARATORS[..]) {
-            let end = year_str
-                .chars()
-                .skip(1)
-                .collect::<String>()
-                .parse::<u16>()?
-                .into();
-            Ok(Year::Range { start: None, end })
-            // e.g. 1999-
-        } else if year_str.ends_with(&Year::SEPARATORS[..]) {
-            // Get list of chars
-            let chars = year_str.chars().collect::<SmallVec<[char; 5]>>();
-            // Remove the dash and create String from slice so we can parse
-            let start = String::from_iter(&chars[..chars.len() - 1])
-                .parse::<u16>()?
-                .into();
-            Ok(Year::Range { start, end: None })
-        } else {
-            match year_str.split_once(&Year::SEPARATORS[..]) {
-                // e.g. 1999 - 2021
-                Some((s, e)) => {
-                    let mut start = s.parse::<u16>()?;
-                    let mut end = e.parse::<u16>()?;
-                    if start > end {
-                        // User is rather stupid, let's save them
-                        mem::swap(&mut start, &mut end);
-                    }
-                    Ok(Year::Range {
-                        start: start.into(),
-                        end: end.into(),
-                    })
-                }
-                // e.g. 2010
-                None => {
-                    let n = year_str.parse()?;
-                    Ok(Year::Single(n))
-                }
-            }
-        }
+impl Serialize for Year {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
     }
 }
 
@@ -167,28 +144,21 @@ impl<'de> Deserialize<'de> for Year {
     }
 }
 
-// Used with serialisation
-impl From<Year> for String {
-    fn from(year: Year) -> Self {
-        year.to_string()
-    }
-}
-
 impl fmt::Display for Year {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use Year::*;
-        match self {
-            Single(y) => write!(f, "{y}"),
-            Range { start, end } => {
-                if let Some(n) = start {
-                    write!(f, "{n}")?;
-                }
-                write!(f, "-")?;
-                if let Some(n) = end {
-                    write!(f, "{n}")?;
-                }
-                Ok(())
+        if self.is_single() {
+            write!(f, "{}", self.0.start())
+        } else {
+            let start = *self.0.start();
+            let end = *self.0.end();
+            if start != 0 {
+                write!(f, "{start}")?;
             }
+            write!(f, "-")?;
+            if end != *CURRENT_YEAR {
+                write!(f, "{end}")?;
+            }
+            Ok(())
         }
     }
 }
@@ -275,8 +245,9 @@ impl<'de> Deserialize<'de> for Genre {
 #[cfg(test)]
 mod filters_unit_tests {
     mod creation {
+        use crate::filters::CURRENT_YEAR;
         use crate::Genre::*;
-        use crate::{Filters, RuntimeConfig, Year, Year::*};
+        use crate::{Filters, RuntimeConfig, Year};
         use smallvec::smallvec;
 
         #[test]
@@ -332,7 +303,7 @@ mod filters_unit_tests {
                 filters,
                 Filters {
                     genres: smallvec![],
-                    years: Some(Single(1980)),
+                    years: Some(Year(1980..=1980)),
                 }
             );
 
@@ -349,10 +320,7 @@ mod filters_unit_tests {
                 filters,
                 Filters {
                     genres: smallvec![],
-                    years: Some(Year::Range {
-                        start: Some(1980),
-                        end: Some(2010),
-                    }),
+                    years: Some(Year(1980..=2010)),
                 }
             );
 
@@ -369,10 +337,7 @@ mod filters_unit_tests {
                 filters,
                 Filters {
                     genres: smallvec![],
-                    years: Some(Year::Range {
-                        start: Some(1980),
-                        end: None,
-                    }),
+                    years: Some(Year(1980..=*CURRENT_YEAR)),
                 }
             );
 
@@ -389,10 +354,7 @@ mod filters_unit_tests {
                 filters,
                 Filters {
                     genres: smallvec![],
-                    years: Some(Year::Range {
-                        start: None,
-                        end: Some(2010),
-                    }),
+                    years: Some(Year(0..=2010)),
                 }
             );
         }
@@ -412,10 +374,7 @@ mod filters_unit_tests {
                 filters,
                 Filters {
                     genres: smallvec![],
-                    years: Some(Year::Range {
-                        start: Some(1980),
-                        end: Some(2010),
-                    }),
+                    years: Some(Year(1980..=2010)),
                 }
             );
         }
@@ -438,10 +397,7 @@ mod filters_unit_tests {
                 filters,
                 Filters {
                     genres: smallvec![Movie, Episode],
-                    years: Some(Year::Range {
-                        start: Some(1980),
-                        end: Some(2010),
-                    }),
+                    years: Some(Year(1980..=2010)),
                 }
             );
         }
@@ -463,80 +419,74 @@ mod filters_unit_tests {
                         title: "Kingsman: The Secret Service".into(),
                         imdb_id: "tt2802144".into(),
                         media_type: Movie,
-                        year: Year::Single(2014),
+                        year: Year(2014..=2014),
                     },
                     SearchResult {
                         title: "The King's Man".into(),
                         imdb_id: "tt6856242".into(),
                         media_type: Movie,
-                        year: Year::Single(2021),
+                        year: Year(2021..=2021),
                     },
                     SearchResult {
                         title: "Kingsman: The Golden Circle".into(),
                         imdb_id: "tt4649466".into(),
                         media_type: Movie,
-                        year: Year::Single(2017),
+                        year: Year(2017..=2017),
                     },
                     SearchResult {
                         title: "Kingsman: The Secret Service Revealed".into(),
                         imdb_id: "tt5026378".into(),
                         media_type: "Video".into(),
-                        year: Year::Single(2015),
+                        year: Year(2015..=2015),
                     },
                     SearchResult {
                         title: "Kingsman: Inside the Golden Circle".into(),
                         imdb_id: "tt7959890".into(),
                         media_type: "Video".into(),
-                        year: Year::Single(2017),
+                        year: Year(2017..=2017),
                     },
                     SearchResult {
                         title: "Kingsman: Bespoke Lessons for Gentlemen Spies"
                             .into(),
                         imdb_id: "tt6597836".into(),
                         media_type: "TV Series".into(),
-                        year: Year::Single(2015),
+                        year: Year(2015..=2015),
                     },
                     SearchResult {
                         title: "King's Man".into(),
                         imdb_id: "tt1582211".into(),
                         media_type: Movie,
-                        year: Year::Single(2010),
+                        year: Year(2010..=2010),
                     },
                     SearchResult {
                         title: "All the King's Men".into(),
                         imdb_id: "tt0405676".into(),
                         media_type: Movie,
-                        year: Year::Single(2006),
+                        year: Year(2006..=2006),
                     },
                     SearchResult {
                         title: "The Kingsman".into(),
                         imdb_id: "tt13332408".into(),
                         media_type: "TV Episode".into(),
-                        year: Year::Single(2020),
+                        year: Year(2020..=2020),
                     },
                     SearchResult {
                         title: "All the King's Men".into(),
                         imdb_id: "tt0041113".into(),
                         media_type: Movie,
-                        year: Year::Single(1949),
+                        year: Year(1949..=1949),
                     },
                     SearchResult {
                         title: "Black Mirror".into(),
                         imdb_id: "tt2085059".into(),
                         media_type: Series,
-                        year: Year::Range {
-                            start: Some(2016),
-                            end: None,
-                        },
+                        year: Year(2016..=2021),
                     },
                     SearchResult {
                         title: "Seinfeld".into(),
                         imdb_id: "tt0098904".into(),
                         media_type: Series,
-                        year: Year::Range {
-                            start: Some(1989),
-                            end: Some(1998),
-                        },
+                        year: Year(1989..=1998),
                     },
                 ]
             });
@@ -637,10 +587,7 @@ mod filters_unit_tests {
         fn years() {
             let test = Filters {
                 genres: smallvec![],
-                years: Some(Year::Range {
-                    start: Some(2020),
-                    end: None,
-                }),
+                years: Some(Year(2020..=2021)),
             };
             let results = [
                 false, true, false, false, false, false, false, false, true,
@@ -650,10 +597,7 @@ mod filters_unit_tests {
 
             let test = Filters {
                 genres: smallvec![],
-                years: Some(Year::Range {
-                    start: Some(1950),
-                    end: Some(2010),
-                }),
+                years: Some(Year(1950..=2010)),
             };
             let results = [
                 false, false, false, false, false, false, true, true, false,
@@ -666,10 +610,7 @@ mod filters_unit_tests {
         fn mixed() {
             let test = Filters {
                 genres: smallvec![Movie],
-                years: Some(Year::Range {
-                    start: Some(1950),
-                    end: Some(2010),
-                }),
+                years: Some(Year(1950..=2010)),
             };
             let results = [
                 false, false, false, false, false, false, true, true, false,
@@ -679,10 +620,7 @@ mod filters_unit_tests {
 
             let test = Filters {
                 genres: smallvec![Movie, "TV Episode".into()],
-                years: Some(Year::Range {
-                    start: Some(2010),
-                    end: None,
-                }),
+                years: Some(Year(2010..=2021)),
             };
             let results = [
                 true, true, true, false, false, false, true, false, true,
@@ -695,41 +633,33 @@ mod filters_unit_tests {
 
 #[cfg(test)]
 mod year_unit_tests {
-    use super::Year::{self, *};
+    use super::Year;
+    use super::CURRENT_YEAR;
+    use lazy_static::lazy_static;
+    use std::ops::RangeInclusive;
     use std::str::FromStr;
 
-    const STR_INPUTS: [&str; 6] = [
+    const STR_INPUTS: [&str; 7] = [
         "1999",
         "-1999",
         "1999–",
         "1920-1925",
         "1000-800",
         "2020–2021",
+        "2048-",
     ];
 
-    const YEARS: [Year; 6] = [
-        Single(1999),
-        Range {
-            start: None,
-            end: Some(1999),
-        },
-        Range {
-            start: Some(1999),
-            end: None,
-        },
-        Range {
-            start: Some(1920),
-            end: Some(1925),
-        },
-        Range {
-            start: Some(800),
-            end: Some(1000),
-        },
-        Range {
-            start: Some(2020),
-            end: Some(2021),
-        },
-    ];
+    lazy_static! {
+        static ref YEARS: [RangeInclusive<u16>; 7] = [
+            1999..=1999,
+            0..=1999,
+            1999..=*CURRENT_YEAR,
+            1920..=1925,
+            800..=1000,
+            2020..=2021,
+            *CURRENT_YEAR..=2048,
+        ];
+    }
 
     #[test]
     fn from_str() {
@@ -737,51 +667,11 @@ mod year_unit_tests {
             .iter()
             .map(|s| Year::from_str(s).expect("Year should have parsed"))
             .zip(YEARS.iter())
-            .for_each(|(a, b)| assert_eq!(a, *b));
+            .for_each(|(a, b)| assert_eq!(a.0, *b));
     }
 
     #[test]
     fn from_str_invalid() {
         Year::from_str("-").unwrap_err();
-    }
-
-    #[test]
-    fn contain() {
-        use Year::*;
-
-        YEARS.iter().for_each(|year| match *year {
-            Single(y) => {
-                assert!(year.contains(y));
-                assert!(!year.contains(y + 1));
-                assert!(!year.contains(y - 1));
-            }
-            Range {
-                start: Some(s),
-                end: Some(e),
-            } => {
-                (s..e).into_iter().for_each(|n| assert!(year.contains(n)));
-                assert!(!year.contains(s - 1));
-                assert!(!year.contains(e + 1));
-            }
-            Range {
-                start: None,
-                end: Some(e),
-            } => {
-                (0..e).into_iter().for_each(|n| assert!(year.contains(n)));
-                assert!(!year.contains(e + 1));
-            }
-            Range {
-                start: Some(s),
-                end: None,
-            } => {
-                (s..u16::MAX)
-                    .into_iter()
-                    .for_each(|n| assert!(year.contains(n)));
-                assert!(!year.contains(s - 1));
-            }
-            _ => {
-                unreachable!("Invalid test - range with start and end as None")
-            }
-        })
     }
 }

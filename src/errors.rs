@@ -12,7 +12,7 @@ pub enum RunError {
     #[error("Unsupported genre: {0}")]
     InvalidGenre(String),
     #[error("Invalid year / year range: {0}")]
-    InvalidYearRange(#[from] ParseIntError),
+    InvalidYearRange(#[from] YearParseError),
     #[error("No search results")]
     NoSearchResults,
     #[error("Issue with web request: {0}")]
@@ -78,4 +78,12 @@ pub enum ClapError {
     NotUsize,
     #[error("invalid format\nIf you think this should have worked, please ensure you installed the tool with the required features\nSee the project README for more information")]
     InvalidFormat,
+}
+
+#[derive(Debug, Error)]
+pub enum YearParseError {
+    #[error(transparent)]
+    InvalidInt(#[from] ParseIntError),
+    #[error("no year was specified at either end of the range")]
+    NoYearsSpecified,
 }
