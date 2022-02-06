@@ -74,6 +74,10 @@ OPTIONS:
             Media which has no year specified will always be included
             Ranges are fully inclusive
             Examples: 2021, 1990-2000, 2000- (2000 onwards), -2000 (before 2000)
+
+ENVIRONMENT VARIABLES:
+    IMDB_ID_MAX_REQUESTS_PER_SEARCH
+            Adjusts the limit on the number of requests per search. Default is 10
 ```
 
 ### Format support
@@ -116,7 +120,7 @@ Version 1:
 Version 2:
 
 9. OMDb API migration - done as of v2.0.0!
-10. Apply filtering at a request level (will result in more results being shown)
+10. Apply filtering at a request level (will result in more results being shown) - done as of v2.0.5!
 11. Bring back pagination
 12. OMDb automated sign-up
 13. Show extra information about media when selecting them
