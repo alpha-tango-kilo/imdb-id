@@ -123,8 +123,21 @@ impl<'a> From<(&'a Genre, u16)> for FilterParameters<'a> {
     }
 }
 
-// TODO: nice debug printing - errors show which request they're from in a user
-//       understandable fashion
+impl<'a> Debug for FilterParameters<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "FilterParameters(")?;
+        match (self.genre, self.year) {
+            (Some(genre), Some(year)) => {
+                write!(f, "genre: {genre}, year: {year}")?
+            }
+            (Some(genre), None) => write!(f, "genre: {genre}")?,
+            (None, Some(year)) => write!(f, "year: {year}")?,
+            (None, None) => {}
+        }
+        write!(f, ")")
+    }
+}
+
 #[derive(Debug)]
 pub struct RequestBundle<'a> {
     api_key: &'a str,
@@ -194,6 +207,7 @@ impl<'a> RequestBundle<'a> {
         self.params
             .into_iter()
             .map(|params| {
+                // Make request
                 let request = base_query(self.api_key, &self.title);
                 let request = match params.genre {
                     Some(genre) => {
@@ -201,18 +215,18 @@ impl<'a> RequestBundle<'a> {
                     }
                     None => request,
                 };
-                match params.year {
+                let request = match params.year {
                     Some(year) => request.with_param("y", year.to_string()),
                     None => request,
-                }
+                };
+                (params, request)
             })
-            .map(send_omdb_search)
-            .filter_map(|results| match results {
+            .filter_map(|(params, request)| match send_omdb_search(request) {
                 // Enumerate results at this point to get their ranking from
                 // their own search. See next comment for why this is done
                 Ok(results) => Some(results.entries.into_iter().enumerate()),
                 Err(why) => {
-                    eprintln!("{why}");
+                    eprintln!("Error with request ({:?}): {why}", params);
                     None
                 }
             })
@@ -228,7 +242,7 @@ impl<'a> RequestBundle<'a> {
             .unique_by(|sr| {
                 sr.imdb_id[2..]
                     .parse::<u32>()
-                    .expect("Invalid IMDb ID (not numerical after 2 digits)")
+                    .unwrap_or_else(|_| panic!("Invalid IMDb ID (not numerical after 2 characters) in {:#?}", sr))
             })
             .collect()
     }
