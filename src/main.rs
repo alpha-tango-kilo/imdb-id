@@ -11,6 +11,7 @@ pub use filters::*;
 pub use persistent::*;
 pub use user_input::{choose_result_from, get_api_key};
 
+use omdb::RequestBundle;
 use std::cmp::min;
 use std::{io, process};
 use OutputFormat::*;
@@ -46,58 +47,46 @@ fn app() -> Result<()> {
         },
     };
 
-    let mut search_results = omdb::search_by_title(
+    let search_bundle = RequestBundle::new(
         &disk_config.api_key,
         &runtime_config.search_term,
-    )?;
-    // Actually do filtering lol
-    search_results
-        .entries
-        .retain(|entry| runtime_config.filters.allows(entry));
+        &runtime_config.filters,
+    );
+    let search_results = search_bundle.get_results();
 
     match runtime_config.format {
         Human => {
-            if search_results.entries.is_empty() {
+            if search_results.is_empty() {
                 // This isn't run otherwise due to the immediate return
                 disk_config.save()?;
                 return Err(RunError::NoSearchResults);
-            } else if !runtime_config.interactive
-                || search_results.entries.len() == 1
-            {
-                let search_result = search_results.entries.get(0).unwrap();
+            } else if !runtime_config.interactive || search_results.len() == 1 {
+                let search_result = &search_results[0];
                 if runtime_config.interactive {
                     eprintln!("Only one result; {search_result}");
                 }
                 println!("{}", search_result.imdb_id);
             } else {
                 // Guaranteed to be interactive
-                let end_index = min(
-                    search_results.entries.len(),
-                    runtime_config.number_of_results,
-                );
+                let end_index =
+                    min(search_results.len(), runtime_config.number_of_results);
                 let selected =
-                    choose_result_from(&search_results.entries[..end_index])?;
+                    choose_result_from(&search_results[..end_index])?;
                 println!("{}", selected.imdb_id);
             }
         }
         Json => {
-            let end_index = min(
-                runtime_config.number_of_results,
-                search_results.entries.len(),
-            );
-            let json = serde_json::to_string_pretty(
-                &search_results.entries[..end_index],
-            )?;
+            let end_index =
+                min(runtime_config.number_of_results, search_results.len());
+            let json =
+                serde_json::to_string_pretty(&search_results[..end_index])?;
             println!("{json}");
         }
         #[cfg(feature = "yaml")]
         Yaml => {
-            let end_index = min(
-                runtime_config.number_of_results,
-                search_results.entries.len(),
-            );
-            let yaml =
-                serde_yaml::to_string(&search_results.entries[..end_index])?;
+            let end_index =
+                min(runtime_config.number_of_results, search_results.len());
+            let yaml = serde_yaml::to_string(&search_results[..end_index])?;
             println!("{yaml}");
         }
     }

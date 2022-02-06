@@ -99,6 +99,11 @@ impl RuntimeConfig {
                     .long_help("Your OMDb API key (overrides saved value if present)")
                     .takes_value(true),
             )
+            .after_long_help("ENVIRONMENT VARIABLES:\n    \
+            IMDB_ID_MAX_REQUESTS_PER_SEARCH\n            \
+            Adjusts the limit on the number \
+            of requests per search. Default is 10\
+            ")
     }
 
     fn process_matches(clap_matches: &ArgMatches) -> Result<Self> {

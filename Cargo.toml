@@ -15,6 +15,7 @@ repository = "https://codeberg.org/alpha-tango-kilo/imdb-id"
 atty = "0.2"
 dirs = "4.0"
 humantime = "2.1"
+itertools = "0.10"
 lazy_static = "1.4"
 serde_json = "1.0"
 # https://rustsec.org/advisories/RUSTSEC-2018-0005.html
