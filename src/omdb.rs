@@ -91,6 +91,7 @@ where
     })
 }
 
+#[derive(Default)]
 struct FilterParameters<'a> {
     genre: Option<&'a Genre>,
     year: Option<u16>,
@@ -162,7 +163,7 @@ impl<'a> RequestBundle<'a> {
         let params = match (genres.as_slice(), years) {
             (&[], None) => {
                 // No filters at all
-                smallvec![]
+                smallvec![FilterParameters::default()]
             }
             (&[], Some(years)) => {
                 // Just years specified

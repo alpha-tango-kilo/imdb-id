@@ -108,6 +108,7 @@ impl FromStr for Year {
     fn from_str(year_str: &str) -> Result<Self, Self::Err> {
         use YearParseError::*;
 
+        // TODO: warnings if year has to be modified
         match year_str.split_once(&Year::SEPARATORS[..]) {
             Some((start_str, end_str)) => {
                 let mut start = if !start_str.is_empty() {
@@ -133,7 +134,7 @@ impl FromStr for Year {
             }
             None => {
                 // Should be just a year we can parse
-                let year = u16::from_str(year_str)?;
+                let year = min(u16::from_str(year_str)?, *CURRENT_YEAR);
                 Ok(Year(year..=year))
             }
         }
