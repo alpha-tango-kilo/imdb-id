@@ -4,6 +4,7 @@ use lazy_static::lazy_static;
 use minreq::Request;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize};
+use smallvec::{smallvec, SmallVec};
 use std::borrow::Cow;
 use std::env;
 use std::fmt::{self, Debug};
@@ -128,7 +129,7 @@ impl<'a> From<(&'a Genre, u16)> for FilterParameters<'a> {
 pub struct RequestBundle<'a> {
     api_key: &'a str,
     title: Cow<'a, str>,
-    params: Vec<FilterParameters<'a>>,
+    params: SmallVec<[FilterParameters<'a>; DEFAULT_MAX_REQUESTS_PER_SEARCH]>,
 }
 
 impl<'a> RequestBundle<'a> {
@@ -148,7 +149,7 @@ impl<'a> RequestBundle<'a> {
         let params = match (genres.as_slice(), years) {
             (&[], None) => {
                 // No filters at all
-                vec![]
+                smallvec![]
             }
             (&[], Some(years)) => {
                 // Just years specified
@@ -157,7 +158,7 @@ impl<'a> RequestBundle<'a> {
                     .clone()
                     .take(*MAX_REQUESTS_PER_SEARCH)
                     .map(FilterParameters::from)
-                    .collect::<Vec<_>>()
+                    .collect::<SmallVec<_>>()
             }
             (genres, None) => {
                 // Just genres specified
@@ -169,7 +170,7 @@ impl<'a> RequestBundle<'a> {
                     // future-proofing
                     .take(*MAX_REQUESTS_PER_SEARCH)
                     .map(FilterParameters::from)
-                    .collect::<Vec<_>>()
+                    .collect::<SmallVec<_>>()
             }
             (genres, Some(years)) => {
                 // Both years and genre specified
@@ -179,7 +180,7 @@ impl<'a> RequestBundle<'a> {
                     .cartesian_product(years.0.clone())
                     .take(*MAX_REQUESTS_PER_SEARCH)
                     .map(FilterParameters::from)
-                    .collect::<Vec<_>>()
+                    .collect::<SmallVec<_>>()
             }
         };
         RequestBundle {
