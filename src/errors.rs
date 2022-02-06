@@ -87,3 +87,15 @@ pub enum YearParseError {
     #[error("no year was specified at either end of the range")]
     NoYearsSpecified,
 }
+
+#[derive(Debug, Error)]
+pub enum ApiKeyError {
+    #[error("Invalid API key format")]
+    InvalidFormat,
+    #[error("Issue with web request: {0}")]
+    RequestFailed(#[from] minreq::Error),
+    #[error("Unauthorised API key")]
+    Unauthorised,
+    #[error("Unexpected response: status {0}")]
+    UnexpectedStatus(i32),
+}

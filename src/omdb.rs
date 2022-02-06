@@ -1,4 +1,4 @@
-use crate::{Filters, Genre, Result, RunError, Year};
+use crate::{ApiKeyError, Filters, Genre, Result, RunError, Year};
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use minreq::Request;
@@ -180,24 +180,24 @@ impl RequestBundle {
     }
 }
 
-// TODO: proper error type
-pub fn test_api_key(api_key: &str) -> Result<(), String> {
+pub fn test_api_key(api_key: &str) -> Result<(), ApiKeyError> {
+    use ApiKeyError::*;
+
     if api_key.parse::<u32>().is_err() {
-        return Err(String::from("Invalid API key format"));
+        return Err(InvalidFormat);
     }
 
     let status = minreq::get("https://www.omdbapi.com/")
         .with_param("apikey", api_key)
-        .send()
-        .map_err(|e| e.to_string())?
+        .send()?
         .status_code;
 
     if status.eq(&200) {
         Ok(())
     } else if status.eq(&401) {
-        Err(String::from("Unauthorised API key, please edit your input"))
+        Err(Unauthorised)
     } else {
-        Err(format!("Unexpected response: {status}"))
+        Err(UnexpectedStatus(status))
     }
 }
 

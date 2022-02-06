@@ -1,6 +1,6 @@
-use crate::get_api_key;
 use crate::omdb::test_api_key;
 use crate::Result;
+use crate::{get_api_key, ApiKeyError};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::fs::OpenOptions;
@@ -35,7 +35,7 @@ impl OnDiskConfig {
         Ok(config)
     }
 
-    pub fn check(&self) -> Result<(), String> {
+    pub fn check(&self) -> Result<(), ApiKeyError> {
         test_api_key(&self.api_key)
     }
 
