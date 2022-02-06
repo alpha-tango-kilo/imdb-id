@@ -5,7 +5,7 @@ use lazy_static::lazy_static;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use smallvec::{smallvec, SmallVec};
-use std::cmp::min;
+use std::cmp::{max, min};
 use std::fmt;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
@@ -57,6 +57,20 @@ impl Filters {
             });
         //println!("{:?}\n^ year matches: {}, genre matches: {}", search_result, year_matches, genre_matches);
         year_matches && genre_matches
+    }
+
+    pub fn combinations(&self) -> usize {
+        // `Other` genres are ignored as they aren't used when creating request
+        // bundles
+        let genres = max(
+            self.genres
+                .iter()
+                .filter(|g| !matches!(g, Other(_)))
+                .count(),
+            1,
+        );
+        let years = self.years.as_ref().map(|year| year.0.len()).unwrap_or(1);
+        genres * years
     }
 }
 
@@ -247,6 +261,44 @@ impl<'de> Deserialize<'de> for Genre {
 
 #[cfg(test)]
 mod filters_unit_tests {
+    use crate::{Filters, Genre::*, Year};
+    use smallvec::smallvec;
+
+    #[test]
+    fn combinations() {
+        let filters = vec![
+            Filters {
+                genres: smallvec![],
+                years: None,
+            },
+            Filters {
+                genres: smallvec![Movie, Series],
+                years: None,
+            },
+            Filters {
+                genres: smallvec![],
+                years: Some(Year(1960..=1970)),
+            },
+            Filters {
+                genres: smallvec![Movie, Episode],
+                years: Some(Year(1980..=2000)),
+            },
+        ];
+        let expected: Vec<usize> = vec![1, 2, 11, 42];
+
+        filters
+            .iter()
+            .zip(expected)
+            .for_each(|(filters, expected)| {
+                assert_eq!(
+                    filters.combinations(),
+                    expected,
+                    "Expected {expected} combination(s) from {:#?}",
+                    filters,
+                );
+            });
+    }
+
     mod creation {
         use crate::filters::CURRENT_YEAR;
         use crate::Genre::*;

@@ -4,6 +4,7 @@ use lazy_static::lazy_static;
 use minreq::Request;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize};
+use std::borrow::Cow;
 use std::env;
 use std::fmt::{self, Debug};
 use std::str::FromStr;
@@ -89,21 +90,65 @@ where
     })
 }
 
+struct FilterParameters<'a> {
+    genre: Option<&'a Genre>,
+    year: Option<u16>,
+}
+
+impl<'a> From<&'a Genre> for FilterParameters<'a> {
+    fn from(genre: &'a Genre) -> Self {
+        FilterParameters {
+            genre: Some(genre),
+            year: None,
+        }
+    }
+}
+
+impl<'a> From<u16> for FilterParameters<'a> {
+    fn from(year: u16) -> Self {
+        FilterParameters {
+            genre: None,
+            year: Some(year),
+        }
+    }
+}
+
+impl<'a> From<(&'a Genre, u16)> for FilterParameters<'a> {
+    fn from((genre, year): (&'a Genre, u16)) -> Self {
+        FilterParameters {
+            genre: Some(genre),
+            year: Some(year),
+        }
+    }
+}
+
 // TODO: nice debug printing - errors show which request they're from in a user
 //       understandable fashion
-// TODO: warn when unable to cover all of the filter combinations in the number
-//       of requests allowed
-pub struct RequestBundle(Vec<Request>);
+#[derive(Debug)]
+pub struct RequestBundle<'a> {
+    api_key: &'a str,
+    title: Cow<'a, str>,
+    params: Vec<FilterParameters<'a>>,
+}
 
-impl RequestBundle {
-    pub fn new(api_key: &str, title: &str, filters: &Filters) -> Self {
-        let title = urlencoding::encode(title);
-        let base_query = base_query(api_key, &title);
+impl<'a> RequestBundle<'a> {
+    pub fn new(api_key: &'a str, title: &'a str, filters: &'a Filters) -> Self {
+        let combinations = filters.combinations();
+        if combinations > *MAX_REQUESTS_PER_SEARCH {
+            eprintln!(
+                "WARNING: the combination of filters you've specified \
+            can't be exhaustively covered in {} requests (it would take \
+            {combinations} requests), so some results will be missed. You can \
+            set the IMDB_ID_MAX_REQUESTS_PER_SEARCH environment variable to \
+            change this number",
+                *MAX_REQUESTS_PER_SEARCH
+            );
+        }
         let Filters { genres, years } = filters;
-        let requests = match (genres.as_slice(), years) {
+        let params = match (genres.as_slice(), years) {
             (&[], None) => {
                 // No filters at all
-                vec![base_query]
+                vec![]
             }
             (&[], Some(years)) => {
                 // Just years specified
@@ -111,9 +156,7 @@ impl RequestBundle {
                     .0
                     .clone()
                     .take(*MAX_REQUESTS_PER_SEARCH)
-                    .map(|year| {
-                        base_query.clone().with_param("y", year.to_string())
-                    })
+                    .map(FilterParameters::from)
                     .collect::<Vec<_>>()
             }
             (genres, None) => {
@@ -125,9 +168,7 @@ impl RequestBundle {
                     // three supported genres/types currently. Consider this
                     // future-proofing
                     .take(*MAX_REQUESTS_PER_SEARCH)
-                    .map(|genre| {
-                        base_query.clone().with_param("type", genre.to_string())
-                    })
+                    .map(FilterParameters::from)
                     .collect::<Vec<_>>()
             }
             (genres, Some(years)) => {
@@ -137,21 +178,33 @@ impl RequestBundle {
                     .filter(|genre| !matches!(genre, Genre::Other(_)))
                     .cartesian_product(years.0.clone())
                     .take(*MAX_REQUESTS_PER_SEARCH)
-                    .map(|(genre, year)| {
-                        base_query
-                            .clone()
-                            .with_param("y", year.to_string())
-                            .with_param("type", genre.to_string())
-                    })
+                    .map(FilterParameters::from)
                     .collect::<Vec<_>>()
             }
         };
-        RequestBundle(requests)
+        RequestBundle {
+            api_key,
+            title: urlencoding::encode(title),
+            params,
+        }
     }
 
     pub fn get_results(self) -> Vec<SearchResult> {
-        self.0
+        self.params
             .into_iter()
+            .map(|params| {
+                let request = base_query(self.api_key, &self.title);
+                let request = match params.genre {
+                    Some(genre) => {
+                        request.with_param("type", genre.to_string())
+                    }
+                    None => request,
+                };
+                match params.year {
+                    Some(year) => request.with_param("y", year.to_string()),
+                    None => request,
+                }
+            })
             .map(send_omdb_search)
             .filter_map(|results| match results {
                 // Enumerate results at this point to get their ranking from
