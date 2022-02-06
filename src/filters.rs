@@ -5,6 +5,7 @@ use lazy_static::lazy_static;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use smallvec::{smallvec, SmallVec};
+use std::cmp::min;
 use std::fmt;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
@@ -96,12 +97,14 @@ impl FromStr for Year {
         match year_str.split_once(&Year::SEPARATORS[..]) {
             Some((start_str, end_str)) => {
                 let mut start = if !start_str.is_empty() {
-                    u16::from_str(start_str)?
+                    // Make sure arg isn't bigger than current year
+                    min(u16::from_str(start_str)?, *CURRENT_YEAR)
                 } else {
                     0
                 };
                 let mut end = if !end_str.is_empty() {
-                    u16::from_str(end_str)?
+                    // Make sure arg isn't bigger than current year
+                    min(u16::from_str(end_str)?, *CURRENT_YEAR)
                 } else if start_str.is_empty() {
                     return Err(NoYearsSpecified);
                 } else {
@@ -657,7 +660,7 @@ mod year_unit_tests {
             1920..=1925,
             800..=1000,
             2020..=2021,
-            *CURRENT_YEAR..=2048,
+            *CURRENT_YEAR..=*CURRENT_YEAR,
         ];
     }
 
