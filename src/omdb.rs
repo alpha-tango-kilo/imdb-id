@@ -28,6 +28,15 @@ enum OmdbResult {
     Ok(SearchResults),
 }
 
+impl From<OmdbResult> for Result<SearchResults> {
+    fn from(omdb_result: OmdbResult) -> Self {
+        match omdb_result {
+            OmdbResult::Ok(sr) => Ok(sr),
+            OmdbResult::Err(e) => Err(RunError::OmdbError(e.error)),
+        }
+    }
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 struct OmdbError {
@@ -282,12 +291,9 @@ fn send_omdb_search(request: Request) -> Result<SearchResults> {
     let body = request.send()?;
     let body = body.as_str()?;
 
-    let de = serde_json::from_str(body)
-        .map_err(|err| RunError::OmdbUnrecognised(body.to_owned(), err))?;
-    match de {
-        OmdbResult::Ok(s) => Ok(s),
-        OmdbResult::Err(e) => Err(RunError::OmdbError(e.error)),
-    }
+    serde_json::from_str::<OmdbResult>(body)
+        .map_err(|err| RunError::OmdbUnrecognised(body.to_owned(), err))?
+        .into()
 }
 
 #[cfg(test)]
