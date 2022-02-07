@@ -2,7 +2,7 @@ use crate::omdb::test_api_key;
 use crate::Result;
 use crate::RunError::NoDesiredSearchResults;
 use dialoguer::theme::ColorfulTheme;
-use dialoguer::{Input, Select};
+use dialoguer::{Confirm, Input, Select};
 use lazy_static::lazy_static;
 use std::fmt::Display;
 use std::ops::Deref;
@@ -12,10 +12,25 @@ lazy_static! {
 }
 
 pub fn get_api_key() -> Result<String> {
+    let has_key = Confirm::with_theme(THEME.deref())
+        .with_prompt("Do you have an OMDb API key?")
+        .default(false)
+        .interact()?;
+
+    if !has_key {
+        println!(
+            "Opening OMDb's website, please grab an API key (it's free!) and \
+            come back when you're done"
+        );
+        opener::open_browser("https://www.omdbapi.com/apikey.aspx")
+            .unwrap_or_else(|why| eprintln!("Failed to open website: {why}"));
+    }
+
     let api_key = Input::with_theme(THEME.deref())
-        .with_prompt("Please enter in your OMDb API key. If you need to, visit their website to get one (https://www.omdbapi.com/apikey.aspx)")
+        .with_prompt("Please enter your API key")
         .validate_with(|api_key: &String| test_api_key(api_key))
         .interact_text()?;
+
     Ok(api_key)
 }
 
