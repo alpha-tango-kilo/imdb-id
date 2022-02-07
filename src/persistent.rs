@@ -25,8 +25,8 @@ impl OnDiskConfig {
             .truncate(true)
             .open(OnDiskConfig::config_path())?;
 
-        let bytes = serde_json::to_vec(&self)?;
-        file.write_all(&bytes)
+        let ser = serde_json::to_string_pretty(&self)?;
+        file.write_all(ser.as_bytes())
     }
 
     pub fn load() -> std::io::Result<Self> {
