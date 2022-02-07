@@ -202,9 +202,9 @@ impl<'a> RequestBundle<'a> {
         }
     }
 
-    pub fn get_results(self) -> Vec<SearchResult> {
+    pub fn get_results(&self) -> Vec<SearchResult> {
         self.params
-            .into_iter()
+            .iter()
             .map(|params| {
                 // Make request
                 let request = base_query(self.api_key, &self.title);
