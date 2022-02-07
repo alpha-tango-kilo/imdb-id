@@ -91,7 +91,7 @@ where
     })
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct FilterParameters<'a> {
     genre: Option<&'a Genre>,
     year: Option<u16>,
@@ -124,18 +124,16 @@ impl<'a> From<(&'a Genre, u16)> for FilterParameters<'a> {
     }
 }
 
-impl<'a> Debug for FilterParameters<'a> {
+impl<'a> fmt::Display for FilterParameters<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "FilterParameters(")?;
         match (self.genre, self.year) {
             (Some(genre), Some(year)) => {
-                write!(f, "genre: {genre}, year: {year}")?
+                write!(f, "genre '{genre}', year {year}")
             }
-            (Some(genre), None) => write!(f, "genre: {genre}")?,
-            (None, Some(year)) => write!(f, "year: {year}")?,
-            (None, None) => {}
+            (Some(genre), None) => write!(f, "genre '{genre}'"),
+            (None, Some(year)) => write!(f, "year {year}"),
+            (None, None) => write!(f, "no filters"),
         }
-        write!(f, ")")
     }
 }
 
@@ -227,7 +225,7 @@ impl<'a> RequestBundle<'a> {
                 // their own search. See next comment for why this is done
                 Ok(results) => Some(results.entries.into_iter().enumerate()),
                 Err(why) => {
-                    eprintln!("Error with request ({:?}): {why}", params);
+                    eprintln!("Problem with request ({params}): {why}");
                     None
                 }
             })
