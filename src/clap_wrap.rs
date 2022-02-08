@@ -110,7 +110,7 @@ impl RuntimeConfig {
             }
             None => {
                 if cfg!(not(test)) {
-                    user_input::get_search_term()?
+                    user_input::cli::get_search_term()?
                 } else {
                     String::new()
                 }
