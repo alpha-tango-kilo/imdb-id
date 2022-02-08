@@ -17,6 +17,9 @@ use std::{io, process};
 use OutputFormat::*;
 
 fn main() {
+    ctrlc::set_handler(|| process::exit(-1))
+        .expect("Failed to set Ctrl-C handler");
+
     if let Err(why) = app() {
         eprintln!("Error: {why}");
         process::exit(why.error_code());
