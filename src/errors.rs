@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::io;
 use std::num::ParseIntError;
 use thiserror::Error;
 use RunError::*;
@@ -98,4 +99,14 @@ pub enum ApiKeyError {
     Unauthorised,
     #[error("Unexpected response: status {0}")]
     UnexpectedStatus(i32),
+}
+
+#[derive(Debug, Error)]
+pub enum SignUpError {
+    #[error(transparent)]
+    Dialoguer(#[from] io::Error),
+    #[error(transparent)]
+    MinReq(#[from] minreq::Error),
+    #[error("response didn't indicate success")]
+    NeedleNotFound,
 }

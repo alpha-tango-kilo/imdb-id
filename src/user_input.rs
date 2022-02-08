@@ -1,6 +1,6 @@
 use crate::omdb::test_api_key;
-use crate::Result;
 use crate::RunError::NoDesiredSearchResults;
+use crate::{Result, SignUpError};
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Confirm, Input, Select};
 use lazy_regex::{lazy_regex, Lazy, Regex};
@@ -33,7 +33,7 @@ pub fn get_api_key() -> Result<String> {
         if let Err(why) = omdb_sign_up() {
             match opener::open_browser(SIGN_UP_URL) {
                 Ok(()) => eprintln!("Automated sign up failed (sorry!), website opened ({why})"),
-                Err(_) => eprintln!("Automated sign up failed (sorry!), please visit {SIGN_UP_URL} ({why}"),
+                Err(_) => eprintln!("Automated sign up failed (sorry!), please visit {SIGN_UP_URL} ({why})"),
             }
         }
     }
@@ -46,7 +46,7 @@ pub fn get_api_key() -> Result<String> {
     Ok(api_key)
 }
 
-fn omdb_sign_up() -> Result<()> {
+fn omdb_sign_up() -> Result<(), SignUpError> {
     let email = Input::<String>::with_theme(THEME.deref())
         .with_prompt("Please enter an email to receive you OMDb API key to")
         .validate_with(|email: &String| match EMAIL_REGEX.is_match(email) {
@@ -74,15 +74,13 @@ fn omdb_sign_up() -> Result<()> {
     let response = request.send()?;
     let body = response.as_str()?;
 
-    if body.contains(SUCCESSFUL_SIGN_UP_NEEDLE) {
-        println!("Sign up was successful, check your email");
-    } else {
-        println!("That doesn't appear to have worked, please try signing up through OMDb's website");
-        opener::open_browser(SIGN_UP_URL).unwrap_or_else(|_| {
-            eprintln!("Failed to open website, please visit {SIGN_UP_URL}")
-        });
+    match body.contains(SUCCESSFUL_SIGN_UP_NEEDLE) {
+        true => {
+            println!("Sign up was successful, check your email");
+            Ok(())
+        }
+        false => Err(SignUpError::NeedleNotFound),
     }
-    Ok(())
 }
 
 pub fn get_search_term() -> Result<String> {
