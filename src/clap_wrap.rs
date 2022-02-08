@@ -95,6 +95,7 @@ impl RuntimeConfig {
             .arg(
                 Arg::new("api_key")
                     .long("api-key")
+                    .alias("apikey")
                     .help("Your OMDb API key")
                     .long_help("Your OMDb API key (overrides saved value if present)")
                     .takes_value(true),
