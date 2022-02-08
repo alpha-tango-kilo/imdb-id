@@ -13,6 +13,7 @@ repository = "https://codeberg.org/alpha-tango-kilo/imdb-id"
 
 [dependencies]
 atty = "0.2"
+crossterm = "0.23"
 dirs = "4.0"
 humantime = "2.1"
 itertools = "0.10"
@@ -26,6 +27,7 @@ serde_yaml = { version = ">=0.8.4", optional = true }
 smallvec = ">=1.6.1"
 thiserror = "1.0"
 trim-in-place = "0.1"
+tui = "0.17"
 urlencoding = "2.1"
 
 [dependencies.clap]

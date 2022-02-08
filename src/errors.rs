@@ -181,6 +181,8 @@ pub enum InteractivityError {
     Cancel,
     #[error("unexpected CLI error {0}\nIf you were just trying to stop running the program, please create an issue about this")]
     Dialoguer(io::Error),
+    #[error("unexpected TUI error {0}")]
+    Tui(io::Error),
 }
 
 impl MaybeFatal for InteractivityError {

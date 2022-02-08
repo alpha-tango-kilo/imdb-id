@@ -11,9 +11,24 @@ pub use filters::*;
 pub use persistent::*;
 pub use user_input::{choose_result_from, get_api_key};
 
+use crate::omdb::SearchResult;
+use crate::user_input::StatefulList;
+use crossterm::event::{
+    DisableMouseCapture, EnableMouseCapture, Event, KeyCode,
+};
+use crossterm::terminal::{
+    disable_raw_mode, enable_raw_mode, EnterAlternateScreen,
+    LeaveAlternateScreen,
+};
+use crossterm::{event, execute};
 use omdb::RequestBundle;
 use std::cmp::min;
-use std::process;
+use std::time::{Duration, Instant};
+use std::{io, process};
+use tui::backend::CrosstermBackend;
+use tui::layout::{Constraint, Direction, Layout};
+use tui::widgets::{Block, Borders, List};
+use tui::Terminal;
 use OutputFormat::*;
 
 fn main() {
@@ -73,8 +88,7 @@ fn app() -> Result<(), FinalError> {
                 // Guaranteed to be interactive
                 let end_index =
                     min(search_results.len(), runtime_config.number_of_results);
-                let selected =
-                    choose_result_from(&search_results[..end_index])?;
+                let selected = tui(&search_results[..end_index])?;
                 println!("{}", selected.imdb_id);
             }
         }
@@ -96,4 +110,73 @@ fn app() -> Result<(), FinalError> {
 
     disk_config.save().emit_unconditional();
     Ok(())
+}
+
+const TICK_RATE: Duration = Duration::from_millis(250);
+
+fn tui(entries: &[SearchResult]) -> Result<&SearchResult, InteractivityError> {
+    let mut list = StatefulList::new(entries);
+
+    let mut stdout = io::stdout();
+
+    // Crossterm setup
+    enable_raw_mode()?;
+    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+    let backend = CrosstermBackend::new(stdout);
+
+    // TUI
+    let mut terminal = Terminal::new(backend)?;
+    let mut last_tick = Instant::now();
+
+    loop {
+        terminal.draw(|f| {
+            let chunks = Layout::default()
+                .direction(Direction::Horizontal)
+                .margin(1)
+                .constraints(
+                    [Constraint::Percentage(40), Constraint::Percentage(60)]
+                        .as_slice(),
+                )
+                .split(f.size());
+
+            let results = List::new(list.items())
+                .block(
+                    Block::default()
+                        .title("Search results")
+                        .borders(Borders::ALL),
+                )
+                .highlight_symbol(">> ");
+            f.render_stateful_widget(results, chunks[0], &mut list.state);
+
+            let info =
+                Block::default().title("Information").borders(Borders::ALL);
+            f.render_widget(info, chunks[1]);
+        })?;
+
+        let timeout = TICK_RATE
+            .checked_sub(last_tick.elapsed())
+            .unwrap_or_default();
+
+        if crossterm::event::poll(timeout)? {
+            if let Event::Key(key) = event::read()? {
+                match key.code {
+                    KeyCode::Enter => break,
+                    KeyCode::Up | KeyCode::Char('k') => list.previous(),
+                    KeyCode::Down | KeyCode::Char('j') => list.next(),
+                    _ => {}
+                }
+            }
+        }
+        last_tick = Instant::now();
+    }
+
+    // Crossterm unwind
+    disable_raw_mode()?;
+    execute!(
+        terminal.backend_mut(),
+        LeaveAlternateScreen,
+        DisableMouseCapture
+    )?;
+
+    Ok(list.current())
 }

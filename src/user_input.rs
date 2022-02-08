@@ -1,5 +1,5 @@
 use crate::omdb::test_api_key;
-use crate::{InteractivityError, SignUpError};
+use crate::{InteractivityError, SearchResult, SignUpError};
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Confirm, Input, Select};
 use lazy_regex::{lazy_regex, Lazy, Regex};
@@ -7,6 +7,7 @@ use lazy_static::lazy_static;
 use minreq::get;
 use std::fmt::Display;
 use std::ops::Deref;
+use tui::widgets::{ListItem, ListState};
 
 type Result<T, E = InteractivityError> = std::result::Result<T, E>;
 
@@ -106,4 +107,60 @@ pub fn choose_result_from<E: Display>(entries: &[E]) -> Result<&E> {
         .interact_opt()?
         .map(|index| &entries[index])
         .ok_or(InteractivityError::Cancel)
+}
+
+// Based on https://github.com/fdehau/tui-rs/blob/85939306e3fef04322483954d3031399a58d002b/examples/list.rs#L20-L64
+pub struct StatefulList<'a, T> {
+    pub state: ListState,
+    underlying: &'a [T],
+    list_items: Vec<ListItem<'a>>,
+}
+
+impl<'a, T> StatefulList<'a, T>
+where
+    &'a T: Into<ListItem<'a>>,
+{
+    pub fn new(items: &'a [T]) -> Self {
+        let list_items = items.iter().map(Into::into).collect();
+
+        StatefulList {
+            state: ListState::default(),
+            underlying: items,
+            list_items,
+        }
+    }
+
+    pub fn next(&mut self) {
+        let index = match self.state.selected() {
+            Some(index) => (index + 1) % self.underlying.len(),
+            None => 0,
+        };
+        self.state.select(Some(index));
+    }
+
+    pub fn previous(&mut self) {
+        let index = match self.state.selected() {
+            Some(index) => {
+                index.checked_sub(1).unwrap_or(self.underlying.len() - 1)
+            }
+            None => 0,
+        };
+        self.state.select(Some(index));
+    }
+
+    pub fn items(&self) -> Vec<ListItem<'a>> {
+        self.list_items.clone()
+    }
+
+    pub fn current(&self) -> &'a T {
+        let index = self.state.selected().unwrap_or_default();
+        &self.underlying[index]
+    }
+}
+
+#[allow(clippy::from_over_into)]
+impl<'a> Into<ListItem<'a>> for &SearchResult {
+    fn into(self) -> ListItem<'a> {
+        ListItem::new(self.to_string())
+    }
 }
