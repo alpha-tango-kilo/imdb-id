@@ -63,7 +63,9 @@ fn app() -> Result<(), FinalError> {
             if search_results.is_empty() {
                 // This isn't run otherwise due to the immediate return
                 disk_config.save().emit_unconditional();
-                return Err(FinalError::NoSearchResults);
+                return Err(FinalError::Interaction(
+                    InteractivityError::Cancel,
+                ));
             } else if !runtime_config.interactive || search_results.len() == 1 {
                 let search_result = &search_results[0];
                 if runtime_config.interactive {
@@ -74,7 +76,10 @@ fn app() -> Result<(), FinalError> {
                 // Guaranteed to be interactive
                 let end_index =
                     min(search_results.len(), runtime_config.number_of_results);
-                let selected = user_input::tui(&search_results[..end_index])?;
+                let selected = user_input::tui(&search_results[..end_index])?
+                    .ok_or(FinalError::Interaction(
+                    InteractivityError::Cancel,
+                ))?;
                 println!("{}", selected.imdb_id);
             }
         }

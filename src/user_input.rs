@@ -119,9 +119,7 @@ pub mod cli {
 mod tui {
     use super::InteractivityError;
     use crate::SearchResult;
-    use crossterm::event::{
-        DisableMouseCapture, EnableMouseCapture, Event, KeyCode,
-    };
+    use crossterm::event::{Event, KeyCode};
     use crossterm::terminal::{
         disable_raw_mode, enable_raw_mode, EnterAlternateScreen,
         LeaveAlternateScreen,
@@ -134,26 +132,28 @@ mod tui {
     use tui::widgets::{Block, Borders, List, ListItem, ListState};
     use tui::Terminal;
 
-    const TICK_RATE: Duration = Duration::from_millis(250);
+    const TICK_RATE: Duration = Duration::from_millis(25000);
+    const HIGHLIGHT_SYMBOL: &str = "> ";
 
-    // Based on https://github.com/fdehau/tui-rs/blob/85939306e3fef04322483954d3031399a58d002b/examples/list.rs#L20-L64
     struct StatefulList<'a, T> {
         state: ListState,
         underlying: &'a [T],
-        list_items: Vec<ListItem<'a>>,
+        width: Option<usize>,
+        // store the width the list items were generated at so we know if we
+        // need to regenerate them if they're called for
+        list_items: Option<(usize, Vec<ListItem<'a>>)>,
     }
 
     impl<'a, T> StatefulList<'a, T>
     where
-        &'a T: Into<ListItem<'a>>,
+        &'a T: ToString,
     {
         fn new(items: &'a [T]) -> Self {
-            let list_items = items.iter().map(Into::into).collect();
-
             StatefulList {
                 state: ListState::default(),
                 underlying: items,
-                list_items,
+                width: None,
+                list_items: None,
             }
         }
 
@@ -175,8 +175,39 @@ mod tui {
             self.state.select(Some(index));
         }
 
-        fn items(&self) -> Vec<ListItem<'a>> {
-            self.list_items.clone()
+        fn deselect(&mut self) {
+            // FIXME: not working as intended
+            self.state.select(None);
+        }
+
+        fn set_width(&mut self, mut width: usize) {
+            if self.state.selected().is_some() {
+                width = width.saturating_sub(HIGHLIGHT_SYMBOL.len());
+            }
+            self.width = Some(width);
+        }
+
+        fn items(&mut self) -> Vec<ListItem<'a>> {
+            assert!(self.width.is_some(), "Width of StatefulList must be assigned before items() is called");
+            match &self.list_items {
+                Some((width, list_items)) if self.width.unwrap() == *width => {
+                    list_items.clone()
+                }
+                _ => {
+                    let width = self.width.unwrap();
+                    let list_items = self
+                        .underlying
+                        .iter()
+                        .map(|t| {
+                            let mut s = t.to_string();
+                            textwrap::fill_inplace(&mut s, width);
+                            ListItem::new(s)
+                        })
+                        .collect::<Vec<ListItem>>();
+                    self.list_items = Some((width, list_items.clone()));
+                    list_items
+                }
+            }
         }
 
         fn current(&self) -> &'a T {
@@ -187,14 +218,14 @@ mod tui {
 
     pub fn tui(
         entries: &[SearchResult],
-    ) -> Result<&SearchResult, InteractivityError> {
-        let mut list = StatefulList::new(entries);
+    ) -> Result<Option<&SearchResult>, InteractivityError> {
+        let mut status_list = StatefulList::new(entries);
 
         let mut stdout = io::stdout();
 
         // Crossterm setup
         enable_raw_mode()?;
-        execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+        execute!(stdout, EnterAlternateScreen)?;
         let backend = CrosstermBackend::new(stdout);
 
         // TUI
@@ -214,15 +245,23 @@ mod tui {
                         .as_slice(),
                     )
                     .split(f.size());
+                // sub two because of width of borders
+                status_list
+                    .set_width(chunks[0].width.saturating_sub(2) as usize);
 
-                let results = List::new(list.items())
+                let selection_list = List::new(status_list.items())
                     .block(
                         Block::default()
                             .title("Search results")
                             .borders(Borders::ALL),
                     )
-                    .highlight_symbol(">> ");
-                f.render_stateful_widget(results, chunks[0], &mut list.state);
+                    .highlight_symbol(HIGHLIGHT_SYMBOL);
+
+                f.render_stateful_widget(
+                    selection_list,
+                    chunks[0],
+                    &mut status_list.state,
+                );
 
                 let info =
                     Block::default().title("Information").borders(Borders::ALL);
@@ -236,9 +275,17 @@ mod tui {
             if event::poll(timeout)? {
                 if let Event::Key(key) = event::read()? {
                     match key.code {
+                        KeyCode::Char('q') => {
+                            status_list.deselect();
+                            break;
+                        }
                         KeyCode::Enter => break,
-                        KeyCode::Up | KeyCode::Char('k') => list.previous(),
-                        KeyCode::Down | KeyCode::Char('j') => list.next(),
+                        KeyCode::Up | KeyCode::Char('k') => {
+                            status_list.previous()
+                        }
+                        KeyCode::Down | KeyCode::Char('j') => {
+                            status_list.next()
+                        }
                         _ => {}
                     }
                 }
@@ -248,18 +295,8 @@ mod tui {
 
         // Crossterm unwind
         disable_raw_mode()?;
-        execute!(
-            terminal.backend_mut(),
-            LeaveAlternateScreen,
-            DisableMouseCapture
-        )?;
+        execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
 
-        Ok(list.current())
-    }
-
-    impl<'a> From<&SearchResult> for ListItem<'a> {
-        fn from(sr: &SearchResult) -> Self {
-            ListItem::new(sr.to_string())
-        }
+        Ok(Some(status_list.current()))
     }
 }

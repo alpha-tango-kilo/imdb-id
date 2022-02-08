@@ -191,6 +191,7 @@ impl MaybeFatal for InteractivityError {
     }
 }
 
+// FIXME: don't assume it's Dialoguer here now that we have Tui
 impl From<io::Error> for InteractivityError {
     fn from(err: io::Error) -> Self {
         use InteractivityError::*;
