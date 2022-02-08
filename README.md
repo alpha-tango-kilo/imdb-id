@@ -122,7 +122,7 @@ Version 2:
 9. OMDb API migration - done as of v2.0.0!
 10. Apply filtering at a request level (will result in more results being shown) - done as of v2.0.5!
 11. Bring back pagination
-12. OMDb automated sign-up
+12. OMDb automated sign-up - done as of v2.1.0!
 13. Show extra information about media when selecting them
 14. ???
 15. Profit!
