@@ -149,8 +149,12 @@ mod tui {
         &'a T: ToString,
     {
         fn new(items: &'a [T]) -> Self {
+            debug_assert!(!items.is_empty(), "Can't construct StatefulList without items");
+
+            let mut state = ListState::default();
+            state.select(Some(0));
             StatefulList {
-                state: ListState::default(),
+                state,
                 underlying: items,
                 width: None,
                 list_items: None,
@@ -175,8 +179,9 @@ mod tui {
             self.state.select(Some(index));
         }
 
+        // Note: the UI will never show a deselected state - this method is
+        // only called during a shutdown triggered by Q or Esc
         fn deselect(&mut self) {
-            // FIXME: not working as intended
             self.state.select(None);
         }
 
@@ -210,9 +215,8 @@ mod tui {
             }
         }
 
-        fn current(&self) -> &'a T {
-            let index = self.state.selected().unwrap_or_default();
-            &self.underlying[index]
+        fn current(&self) -> Option<&'a T> {
+            self.state.selected().map(|index| &self.underlying[index])
         }
     }
 
@@ -275,7 +279,7 @@ mod tui {
             if event::poll(timeout)? {
                 if let Event::Key(key) = event::read()? {
                     match key.code {
-                        KeyCode::Char('q') => {
+                        KeyCode::Esc | KeyCode::Char('q') => {
                             status_list.deselect();
                             break;
                         }
@@ -297,6 +301,6 @@ mod tui {
         disable_raw_mode()?;
         execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
 
-        Ok(Some(status_list.current()))
+        Ok(status_list.current())
     }
 }
