@@ -211,8 +211,12 @@ mod tui {
             }
         }
 
-        fn current(&self) -> Option<&'a T> {
-            self.state.selected().map(|index| &self.underlying[index])
+        fn current(&self) -> &'a T {
+            let index = self
+                .state
+                .selected()
+                .expect("Stateful list should always have a selected item");
+            &self.underlying[index]
         }
     }
 
@@ -287,7 +291,7 @@ mod tui {
 
         // Crossterm unwind
         unwind(terminal.backend_mut())?;
-        Ok(status_list.current())
+        Ok(Some(status_list.current()))
     }
 
     // Crossterm unwind
