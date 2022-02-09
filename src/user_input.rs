@@ -126,13 +126,11 @@ mod tui {
     };
     use crossterm::{event, execute};
     use std::io;
-    use std::time::{Duration, Instant};
     use tui::backend::CrosstermBackend;
     use tui::layout::{Constraint, Direction, Layout};
     use tui::widgets::{Block, Borders, List, ListItem, ListState};
     use tui::Terminal;
 
-    const TICK_RATE: Duration = Duration::from_millis(25000);
     const HIGHLIGHT_SYMBOL: &str = "> ";
 
     struct StatefulList<'a, T> {
@@ -149,7 +147,10 @@ mod tui {
         &'a T: ToString,
     {
         fn new(items: &'a [T]) -> Self {
-            debug_assert!(!items.is_empty(), "Can't construct StatefulList without items");
+            debug_assert!(
+                !items.is_empty(),
+                "Can't construct StatefulList without items"
+            );
 
             let mut state = ListState::default();
             state.select(Some(0));
@@ -234,7 +235,6 @@ mod tui {
 
         // TUI
         let mut terminal = Terminal::new(backend)?;
-        let mut last_tick = Instant::now();
 
         loop {
             terminal.draw(|f| {
@@ -272,29 +272,20 @@ mod tui {
                 f.render_widget(info, chunks[1]);
             })?;
 
-            let timeout = TICK_RATE
-                .checked_sub(last_tick.elapsed())
-                .unwrap_or_default();
-
-            if event::poll(timeout)? {
-                if let Event::Key(key) = event::read()? {
-                    match key.code {
-                        KeyCode::Esc | KeyCode::Char('q') => {
-                            status_list.deselect();
-                            break;
-                        }
-                        KeyCode::Enter => break,
-                        KeyCode::Up | KeyCode::Char('k') => {
-                            status_list.previous()
-                        }
-                        KeyCode::Down | KeyCode::Char('j') => {
-                            status_list.next()
-                        }
-                        _ => {}
+            // Blocks until event - which is fine because we don't need to re-
+            // draw unless there has been input
+            if let Event::Key(key) = event::read()? {
+                match key.code {
+                    KeyCode::Esc | KeyCode::Char('q') => {
+                        status_list.deselect();
+                        break;
                     }
+                    KeyCode::Enter => break,
+                    KeyCode::Up | KeyCode::Char('k') => status_list.previous(),
+                    KeyCode::Down | KeyCode::Char('j') => status_list.next(),
+                    _ => {}
                 }
             }
-            last_tick = Instant::now();
         }
 
         // Crossterm unwind
