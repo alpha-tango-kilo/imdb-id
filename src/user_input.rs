@@ -126,6 +126,7 @@ mod tui {
     };
     use crossterm::{event, execute};
     use std::io;
+    use std::io::Stdout;
     use tui::backend::CrosstermBackend;
     use tui::layout::{Constraint, Direction, Layout};
     use tui::widgets::{Block, Borders, List, ListItem, ListState};
@@ -178,12 +179,6 @@ mod tui {
                 None => 0,
             };
             self.state.select(Some(index));
-        }
-
-        // Note: the UI will never show a deselected state - this method is
-        // only called during a shutdown triggered by Q or Esc
-        fn deselect(&mut self) {
-            self.state.select(None);
         }
 
         fn set_width(&mut self, mut width: usize) {
@@ -277,8 +272,8 @@ mod tui {
             if let Event::Key(key) = event::read()? {
                 match key.code {
                     KeyCode::Esc | KeyCode::Char('q') => {
-                        status_list.deselect();
-                        break;
+                        unwind(terminal.backend_mut())?;
+                        return Ok(None);
                     }
                     KeyCode::Enter => break,
                     KeyCode::Up | KeyCode::Char('k') => status_list.previous(),
@@ -289,9 +284,13 @@ mod tui {
         }
 
         // Crossterm unwind
-        disable_raw_mode()?;
-        execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
-
+        unwind(terminal.backend_mut())?;
         Ok(status_list.current())
+    }
+
+    // Crossterm unwind
+    fn unwind(stdout: &mut CrosstermBackend<Stdout>) -> io::Result<()> {
+        disable_raw_mode()?;
+        execute!(stdout, LeaveAlternateScreen)
     }
 }
