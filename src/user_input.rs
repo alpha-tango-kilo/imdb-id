@@ -125,6 +125,7 @@ mod tui {
         LeaveAlternateScreen,
     };
     use crossterm::{event, execute};
+    use std::fmt::Display;
     use std::io;
     use std::io::Stdout;
     use tui::backend::CrosstermBackend;
@@ -134,31 +135,48 @@ mod tui {
 
     const HIGHLIGHT_SYMBOL: &str = "> ";
 
+    struct ListItemList<'a> {
+        items: Vec<ListItem<'a>>,
+        width: usize,
+    }
+
+    impl<'a> ListItemList<'a> {
+        pub fn new<T: Display>(items: &[T], width: usize) -> Self {
+            let items = items
+                .iter()
+                .map(|t| {
+                    let mut s = t.to_string();
+                    textwrap::fill_inplace(&mut s, width);
+                    ListItem::new(s)
+                })
+                .collect();
+
+            ListItemList { items, width }
+        }
+
+        pub fn items_cloned(&self) -> Vec<ListItem<'a>> {
+            self.items.clone()
+        }
+    }
+
     struct StatefulList<'a, T> {
         state: ListState,
         underlying: &'a [T],
-        width: Option<usize>,
-        // store the width the list items were generated at so we know if we
-        // need to regenerate them if they're called for
-        list_items: Option<(usize, Vec<ListItem<'a>>)>,
+        list_items: Option<ListItemList<'a>>,
     }
 
-    impl<'a, T> StatefulList<'a, T>
-    where
-        &'a T: ToString,
-    {
+    impl<'a, T: Display> StatefulList<'a, T> {
         fn new(items: &'a [T]) -> Self {
             debug_assert!(
                 !items.is_empty(),
                 "Can't construct StatefulList without items"
             );
-
             let mut state = ListState::default();
             state.select(Some(0));
+
             StatefulList {
                 state,
                 underlying: items,
-                width: None,
                 list_items: None,
             }
         }
@@ -181,32 +199,14 @@ mod tui {
             self.state.select(Some(index));
         }
 
-        fn set_width(&mut self, mut width: usize) {
-            if self.state.selected().is_some() {
-                width = width.saturating_sub(HIGHLIGHT_SYMBOL.len());
-            }
-            self.width = Some(width);
-        }
-
-        fn items(&mut self) -> Vec<ListItem<'a>> {
-            assert!(self.width.is_some(), "Width of StatefulList must be assigned before items() is called");
+        fn items(&mut self, width: usize) -> Vec<ListItem<'a>> {
             match &self.list_items {
-                Some((width, list_items)) if self.width.unwrap() == *width => {
-                    list_items.clone()
-                }
+                Some(li) if li.width == width => li.items_cloned(),
                 _ => {
-                    let width = self.width.unwrap();
-                    let list_items = self
-                        .underlying
-                        .iter()
-                        .map(|t| {
-                            let mut s = t.to_string();
-                            textwrap::fill_inplace(&mut s, width);
-                            ListItem::new(s)
-                        })
-                        .collect::<Vec<ListItem>>();
-                    self.list_items = Some((width, list_items.clone()));
-                    list_items
+                    let lil = ListItemList::new(self.underlying, width);
+                    let items = lil.items_cloned();
+                    self.list_items = Some(lil);
+                    items
                 }
             }
         }
@@ -244,11 +244,13 @@ mod tui {
                         .as_slice(),
                     )
                     .split(f.size());
-                // sub two because of width of borders
-                status_list
-                    .set_width(chunks[0].width.saturating_sub(2) as usize);
 
-                let selection_list = List::new(status_list.items())
+                // FIXME: one character still appears to be getting chopped
+                // sub two because of width of bordersq
+                let width = chunks[0].width.saturating_sub(2) as usize;
+                let items = status_list.items(width);
+
+                let selection_list = List::new(items)
                     .block(
                         Block::default()
                             .title("Search results")
