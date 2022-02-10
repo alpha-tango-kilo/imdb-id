@@ -134,6 +134,7 @@ mod tui {
     use tui::Terminal;
 
     const HIGHLIGHT_SYMBOL: &str = "> ";
+    const MIN_MARGIN: usize = 1;
 
     struct ListItemList<'a> {
         items: Vec<ListItem<'a>>,
@@ -249,9 +250,10 @@ mod tui {
                     )
                     .split(f.size());
 
-                // FIXME: one character still appears to be getting chopped
-                // sub two because of width of bordersq
+                // subtract width of borders
                 let width = chunks[0].width.saturating_sub(2) as usize;
+                let width = width.saturating_sub(HIGHLIGHT_SYMBOL.len());
+                let width = width.saturating_sub(MIN_MARGIN);
                 let items = status_list.items(width);
 
                 let selection_list = List::new(items)
