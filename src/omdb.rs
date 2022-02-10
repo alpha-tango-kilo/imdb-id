@@ -80,6 +80,92 @@ impl fmt::Display for SearchResult {
     }
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all(deserialize = "PascalCase"))]
+pub struct Entry {
+    pub title: String,
+    pub year: Year,
+    #[serde(rename(deserialize = "Rated"))]
+    pub rating: String,
+    pub runtime: String,
+    #[serde(rename(deserialize = "Genre"), deserialize_with = "de_comma_list")]
+    pub genres: SmallVec<[String; 3]>,
+    #[serde(
+        rename(deserialize = "Director"),
+        deserialize_with = "de_comma_list"
+    )]
+    pub directors: SmallVec<[String; 3]>,
+    #[serde(
+        rename(deserialize = "Writer"),
+        deserialize_with = "de_comma_list"
+    )]
+    pub writers: SmallVec<[String; 3]>,
+    #[serde(deserialize_with = "de_comma_list")]
+    pub actors: SmallVec<[String; 3]>,
+    pub plot: String,
+    pub language: String,
+    pub country: String,
+    #[serde(rename(deserialize = "imdbID"))]
+    pub imdb_id: String,
+    #[serde(
+        rename(deserialize = "imdbRating"),
+        deserialize_with = "de_stringified"
+    )]
+    pub imdb_rating: f32,
+    #[serde(rename(deserialize = "Type"))]
+    pub media_type: String,
+}
+
+impl fmt::Display for Entry {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use crossterm::style::{Attribute, Stylize};
+
+        write!(f, "{}: {} ", "Title:".bold(), self.title)?;
+        writeln!(f, "{}({})", Attribute::Dim, self.year)?;
+        writeln!(
+            f,
+            "{}: {:?}, {}: {}",
+            "Genres".bold(),
+            self.genres,
+            "Runtime".bold(),
+            self.runtime
+        )
+        // TODO: complete/more
+    }
+}
+
+/*
+Lists in OMDb are given like "Pete Docter, Bob Peterson, Tom McCarthy"
+This helper throws that into a SmallVec<[String; 3]>
+ */
+fn de_comma_list<'de, D>(d: D) -> Result<SmallVec<[String; 3]>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s = String::deserialize(d)?;
+    Ok(s.split(", ").map(|s| s.into()).collect())
+}
+
+/*
+OMDb returns all values as JSON strings, even those that aren't, like ratings
+This helper can be given to serde to try and convert those elements to a more
+useful type, like u16 for years
+ */
+fn de_stringified<'de, D, T>(d: D) -> Result<T, D::Error>
+    where
+        D: Deserializer<'de>,
+        T: FromStr,
+        <T as FromStr>::Err: Debug,
+{
+    let s = String::deserialize(d)?;
+    T::from_str(&s).map_err(|e| {
+        D::Error::custom(format!(
+            "could not parse field as desired type ({:?})",
+            e
+        ))
+    })
+}
+
 // These are the OMDb API supported media typers to filter by (episode has been
 // intentionally excluded as it always returns 0 results)
 // Serialize and Deserialize and implemented by hand
@@ -132,33 +218,13 @@ impl Serialize for MediaType {
 // Deserialize with FromStr
 impl<'de> Deserialize<'de> for MediaType {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
+        where
+            D: Deserializer<'de>,
     {
         String::deserialize(deserializer)?
             .parse()
             .map_err(|_| D::Error::custom("unrecognised media type"))
     }
-}
-
-/*
-OMDb returns all values as JSON strings, even those that aren't, like ratings
-This helper can be given to serde to try and convert those elements to a more
-useful type, like u16 for years
- */
-fn de_stringified<'de, D, T>(d: D) -> Result<T, D::Error>
-where
-    D: Deserializer<'de>,
-    T: FromStr,
-    <T as FromStr>::Err: Debug,
-{
-    let s = String::deserialize(d)?;
-    T::from_str(&s).map_err(|e| {
-        D::Error::custom(format!(
-            "could not parse field as desired type ({:?})",
-            e
-        ))
-    })
 }
 
 // Taking ownership of MediaType should always be cheap as it should never be
