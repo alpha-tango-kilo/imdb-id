@@ -160,14 +160,14 @@ mod tui {
         }
     }
 
-    struct StatefulList<'a, T> {
+    struct StatefulList<'a> {
         state: ListState,
-        underlying: &'a [T],
+        underlying: &'a [SearchResult],
         list_items: Option<ListItemList<'a>>,
     }
 
-    impl<'a, T: Display> StatefulList<'a, T> {
-        fn new(items: &'a [T]) -> Self {
+    impl<'a> StatefulList<'a> {
+        fn new(items: &'a [SearchResult]) -> Self {
             debug_assert!(
                 !items.is_empty(),
                 "Can't construct StatefulList without items"
@@ -212,12 +212,10 @@ mod tui {
             }
         }
 
-        fn current(&self) -> &'a T {
-            let index = self
-                .state
+        fn current(&self) -> usize {
+            self.state
                 .selected()
-                .expect("Stateful list should always have a selected item");
-            &self.underlying[index]
+                .expect("Stateful list should always have a selected item")
         }
     }
 
@@ -293,7 +291,8 @@ mod tui {
 
         // Crossterm unwind
         unwind(terminal.backend_mut())?;
-        Ok(Some(status_list.current()))
+        let chosen = &entries[status_list.current()];
+        Ok(Some(chosen))
     }
 
     // Crossterm unwind

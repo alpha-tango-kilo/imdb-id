@@ -152,10 +152,10 @@ This helper can be given to serde to try and convert those elements to a more
 useful type, like u16 for years
  */
 fn de_stringified<'de, D, T>(d: D) -> Result<T, D::Error>
-    where
-        D: Deserializer<'de>,
-        T: FromStr,
-        <T as FromStr>::Err: Debug,
+where
+    D: Deserializer<'de>,
+    T: FromStr,
+    <T as FromStr>::Err: Debug,
 {
     let s = String::deserialize(d)?;
     T::from_str(&s).map_err(|e| {
@@ -218,8 +218,8 @@ impl Serialize for MediaType {
 // Deserialize with FromStr
 impl<'de> Deserialize<'de> for MediaType {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where
-            D: Deserializer<'de>,
+    where
+        D: Deserializer<'de>,
     {
         String::deserialize(deserializer)?
             .parse()
