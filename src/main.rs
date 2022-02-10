@@ -76,10 +76,11 @@ fn app() -> Result<(), FinalError> {
                 // Guaranteed to be interactive
                 let end_index =
                     min(search_results.len(), runtime_config.number_of_results);
-                let selected = user_input::tui(&search_results[..end_index])?
-                    .ok_or(FinalError::Interaction(
-                    InteractivityError::Cancel,
-                ))?;
+                let selected = user_input::tui(
+                    &disk_config.api_key,
+                    &search_results[..end_index],
+                )?
+                .ok_or(FinalError::Interaction(InteractivityError::Cancel))?;
                 println!("{}", selected.imdb_id);
             }
         }

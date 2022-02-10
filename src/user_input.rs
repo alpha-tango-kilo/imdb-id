@@ -118,7 +118,8 @@ pub mod cli {
 
 mod tui {
     use super::InteractivityError;
-    use crate::SearchResult;
+    use crate::omdb::{get_entry, Entry};
+    use crate::{RequestError, SearchResult};
     use crossterm::event::{Event, KeyCode};
     use crossterm::terminal::{
         disable_raw_mode, enable_raw_mode, EnterAlternateScreen,
@@ -130,7 +131,7 @@ mod tui {
     use std::io::Stdout;
     use tui::backend::CrosstermBackend;
     use tui::layout::{Constraint, Direction, Layout};
-    use tui::widgets::{Block, Borders, List, ListItem, ListState};
+    use tui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph};
     use tui::Terminal;
 
     const HIGHLIGHT_SYMBOL: &str = "> ";
@@ -160,10 +161,46 @@ mod tui {
         }
     }
 
+    #[derive(Clone)]
+    struct EntryParagraph<'a> {
+        entry: Entry,
+        // TODO: could/should merge these two options
+        paragraph: Option<Paragraph<'a>>,
+        width: Option<usize>,
+    }
+
+    impl<'a> EntryParagraph<'a> {
+        pub fn new(entry: Entry) -> Self {
+            EntryParagraph {
+                entry,
+                paragraph: None,
+                width: None,
+            }
+        }
+
+        pub fn get(&mut self, width: usize) -> Paragraph {
+            if self.width.map(|w| w == width).unwrap_or(false) {
+                self.paragraph
+                    .as_ref()
+                    .expect("EntryParagraph had width set but not paragraph")
+                    .clone()
+            } else {
+                // Regenerate paragraph from entry
+                let mut s = self.entry.to_string();
+                textwrap::fill_inplace(&mut s, width);
+                let paragraph = Paragraph::new(s);
+                self.paragraph = Some(paragraph.clone());
+                self.width = Some(width);
+                paragraph
+            }
+        }
+    }
+
     struct StatefulList<'a> {
         state: ListState,
         underlying: &'a [SearchResult],
         list_items: Option<ListItemList<'a>>,
+        list_entries: Vec<Option<EntryParagraph<'a>>>,
     }
 
     impl<'a> StatefulList<'a> {
@@ -179,6 +216,7 @@ mod tui {
                 state,
                 underlying: items,
                 list_items: None,
+                list_entries: vec![None; items.len()],
             }
         }
 
@@ -212,6 +250,25 @@ mod tui {
             }
         }
 
+        fn fetch_entry(&mut self, api_key: &str) -> Result<(), RequestError> {
+            let index = self.state.selected().unwrap();
+            if self.list_entries[index].is_none() {
+                // Make web request for entry
+                let imdb_id = &self.underlying[index].imdb_id;
+                let entry = get_entry(api_key, imdb_id)?;
+                self.list_entries[index] = Some(EntryParagraph::new(entry));
+            }
+            Ok(())
+        }
+
+        fn entry(&mut self, width: usize) -> Paragraph<'_> {
+            let index = self.state.selected().unwrap();
+            self.list_entries[index]
+                .as_mut()
+                .expect("Entry has been requested but hasn't been fetched")
+                .get(width)
+        }
+
         fn current(&self) -> usize {
             self.state
                 .selected()
@@ -219,9 +276,10 @@ mod tui {
         }
     }
 
-    pub fn tui(
-        entries: &[SearchResult],
-    ) -> Result<Option<&SearchResult>, InteractivityError> {
+    pub fn tui<'a>(
+        api_key: &str,
+        entries: &'a [SearchResult],
+    ) -> Result<Option<&'a SearchResult>, InteractivityError> {
         let mut status_list = StatefulList::new(entries);
 
         let mut stdout = io::stdout();
@@ -235,6 +293,9 @@ mod tui {
         let mut terminal = Terminal::new(backend)?;
 
         loop {
+            // TODO: better error handling
+            status_list.fetch_entry(api_key).unwrap();
+
             terminal.draw(|f| {
                 let chunks = Layout::default()
                     .direction(Direction::Horizontal)
@@ -268,9 +329,13 @@ mod tui {
                     &mut status_list.state,
                 );
 
-                let info =
-                    Block::default().title("Information").borders(Borders::ALL);
-                f.render_widget(info, chunks[1]);
+                let width = chunks[1].width.saturating_sub(2) as usize;
+                let width = width.saturating_sub(MIN_MARGIN * 2);
+                // TODO: use Paragraph.wrap() instead of home baked solution
+                let entry = status_list.entry(width).block(
+                    Block::default().title("Information").borders(Borders::ALL),
+                );
+                f.render_widget(entry, chunks[1]);
             })?;
 
             // Blocks until event - which is fine because we don't need to re-

@@ -80,7 +80,7 @@ impl fmt::Display for SearchResult {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all(deserialize = "PascalCase"))]
 pub struct Entry {
     pub title: String,
@@ -119,7 +119,7 @@ pub struct Entry {
 impl fmt::Display for Entry {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use crossterm::style::{Attribute, Stylize};
-
+        // FIXME: this formatting doesn't work
         write!(f, "{}: {} ", "Title:".bold(), self.title)?;
         writeln!(f, "{}({})", Attribute::Dim, self.year)?;
         writeln!(
@@ -404,6 +404,22 @@ fn api_key_format_acceptable(api_key: &str) -> bool {
     api_key.len() == 8 && api_key.chars().all(|c| c.is_ascii_hexdigit())
 }
 
+pub fn get_entry(api_key: &str, imdb_id: &str) -> Result<Entry, RequestError> {
+    let request = minreq::get("https://www.omdbapi.com/")
+        .with_param("apikey", api_key)
+        // Lock to API version 1 and return type JSON in case this changes in
+        // future
+        .with_param("v", "1")
+        .with_param("r", "json")
+        .with_param("i", imdb_id);
+
+    let response = request.send()?;
+    let body = response.as_str()?;
+
+    serde_json::from_str(body)
+        .map_err(|err| RequestError::Deserialisation(err, body.to_owned()))
+}
+
 fn base_query(api_key: &str, title: &str) -> Request {
     minreq::get("https://www.omdbapi.com/")
         .with_param("apikey", api_key)
@@ -415,8 +431,8 @@ fn base_query(api_key: &str, title: &str) -> Request {
 }
 
 fn send_omdb_search(request: Request) -> Result<SearchResults, RequestError> {
-    let body = request.send()?;
-    let body = body.as_str()?;
+    let response = request.send()?;
+    let body = response.as_str()?;
 
     serde_json::from_str::<OmdbResult>(body)
         .map_err(|err| RequestError::Deserialisation(err, body.to_owned()))?
