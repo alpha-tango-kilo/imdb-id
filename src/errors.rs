@@ -28,7 +28,7 @@ pub enum RunError {
     OmdbNotFound(String), // search term
     #[error("OMDb API returned an error: {0:?}")]
     OmdbError(String), // "Error" field of response
-    #[error("Unrecognised response from OMDb, please raise an issue including the following text:\nSerde error: {0}\nJSON: \n```\n{1}\n```")]
+    #[error("Unrecognised response from OMDb, please raise an issue including the following text:\nSerde error: {1}\nJSON: \n```\n{0}\n```")]
     OmdbUnrecognised(String, #[source] serde_json::Error), // raw response JSON
 }
 
