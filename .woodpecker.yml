@@ -6,6 +6,7 @@ pipeline:
   test:
     image: rust:1.58
     commands:
+      - cargo test
       - cargo test --all-features
   lint:
     image: rust:1.58
