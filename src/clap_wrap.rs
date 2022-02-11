@@ -366,7 +366,8 @@ mod unit_tests {
         let config = RuntimeConfig::process_matches(&m).unwrap();
         assert_eq!(config.format, OutputFormat::Json);
 
-        if cfg!(feature = "yaml") {
+        #[cfg(feature = "yaml")]
+        {
             let clap = RuntimeConfig::create_clap_app();
             let m = clap
                 .try_get_matches_from(vec![
@@ -397,7 +398,8 @@ mod unit_tests {
         let config = RuntimeConfig::process_matches(&m).unwrap();
         assert_eq!(config.format, OutputFormat::Json);
 
-        if cfg!(feature = "yaml") {
+        #[cfg(feature = "yaml")]
+        {
             let clap = RuntimeConfig::create_clap_app();
             let m = clap
                 .try_get_matches_from(vec![
