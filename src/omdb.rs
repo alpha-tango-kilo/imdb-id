@@ -23,15 +23,15 @@ lazy_static! {
 
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]
-enum OmdbResult {
+enum OmdbResult<T> {
     Err(OmdbError),
-    Ok(SearchResults),
+    Ok(T),
 }
 
-impl From<OmdbResult> for Result<SearchResults, RequestError> {
-    fn from(omdb_result: OmdbResult) -> Self {
+impl<T> From<OmdbResult<T>> for Result<T, RequestError> {
+    fn from(omdb_result: OmdbResult<T>) -> Self {
         match omdb_result {
-            OmdbResult::Ok(sr) => Ok(sr),
+            OmdbResult::Ok(t) => Ok(t),
             OmdbResult::Err(e) => Err(RequestError::Omdb(e.error)),
         }
     }
@@ -338,7 +338,8 @@ impl<'a> RequestBundle<'a> {
             .iter()
             .map(|params| {
                 // Make request
-                let request = base_query(self.api_key, &self.title);
+                let request = base_query(self.api_key)
+                    .with_param("s", self.title.as_ref());
                 let request = match &params.media_type {
                     Some(mt) => {
                         request.with_param("type", mt.to_string())
@@ -405,25 +406,19 @@ fn api_key_format_acceptable(api_key: &str) -> bool {
 }
 
 pub fn get_entry(api_key: &str, imdb_id: &str) -> Result<Entry, RequestError> {
-    let request = minreq::get("https://www.omdbapi.com/")
-        .with_param("apikey", api_key)
-        // Lock to API version 1 and return type JSON in case this changes in
-        // future
-        .with_param("v", "1")
-        .with_param("r", "json")
-        .with_param("i", imdb_id);
+    let request = base_query(api_key).with_param("i", imdb_id);
 
     let response = request.send()?;
     let body = response.as_str()?;
 
-    serde_json::from_str(body)
-        .map_err(|err| RequestError::Deserialisation(err, body.to_owned()))
+    serde_json::from_str::<OmdbResult<Entry>>(body)
+        .map_err(|err| RequestError::Deserialisation(err, body.to_owned()))?
+        .into()
 }
 
-fn base_query(api_key: &str, title: &str) -> Request {
+fn base_query(api_key: &str) -> Request {
     minreq::get("https://www.omdbapi.com/")
         .with_param("apikey", api_key)
-        .with_param("s", title)
         // Lock to API version 1 and return type JSON in case this changes in
         // future
         .with_param("v", "1")
@@ -434,15 +429,15 @@ fn send_omdb_search(request: Request) -> Result<SearchResults, RequestError> {
     let response = request.send()?;
     let body = response.as_str()?;
 
-    serde_json::from_str::<OmdbResult>(body)
+    serde_json::from_str::<OmdbResult<SearchResults>>(body)
         .map_err(|err| RequestError::Deserialisation(err, body.to_owned()))?
         .into()
 }
 
 #[cfg(test)]
 mod unit_tests {
-    use once_cell::unsync::Lazy;
     use super::*;
+    use once_cell::unsync::Lazy;
 
     #[test]
     fn api_key_format() {
