@@ -309,6 +309,12 @@ mod unit_tests {
     fn api_key_format() {
         assert!(!api_key_format_acceptable("fizzbuzz"));
         assert!(!api_key_format_acceptable("3q;mgh3w"));
+        assert!(!api_key_format_acceptable("foo"));
+        assert!(!api_key_format_acceptable("foobarbaz"));
+
+        assert!(!api_key_format_acceptable("123f3"));
+        assert!(!api_key_format_acceptable("435adf312b"));
+
         assert!(api_key_format_acceptable("13495632"));
         assert!(api_key_format_acceptable("3a3d4e1f"));
     }
