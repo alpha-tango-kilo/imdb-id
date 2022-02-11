@@ -12,7 +12,6 @@ homepage = "https://codeberg.org/alpha-tango-kilo/imdb-id"
 repository = "https://codeberg.org/alpha-tango-kilo/imdb-id"
 
 [dependencies]
-atty = "0.2"
 crossterm = "0.23"
 dirs = "4.0"
 humantime = "2.1"

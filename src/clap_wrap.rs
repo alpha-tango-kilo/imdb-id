@@ -5,6 +5,7 @@ use OutputFormat::*;
 use itertools::Itertools;
 use std::str::FromStr;
 use trim_in_place::TrimInPlace;
+use std::io::{stdin, stdout};
 
 #[derive(Debug)]
 pub struct RuntimeConfig {
@@ -123,11 +124,11 @@ impl RuntimeConfig {
         };
 
         let mut interactive = !clap_matches.is_present("non-interactive");
-        // atty checks are disabled for testing
+        // TTY checks are disabled for testing
         if cfg!(not(test)) {
-            use atty::Stream;
-            interactive &= atty::is(Stream::Stdout);
-            interactive &= atty::is(Stream::Stdin);
+            use crossterm::tty::IsTty;
+            interactive &= stdout().is_tty();
+            interactive &= stdin().is_tty();
         }
 
         let number_of_results = if interactive || format != Human {
