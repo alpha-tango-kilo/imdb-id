@@ -259,7 +259,8 @@ impl<'a> RequestBundle<'a> {
 pub fn test_api_key(api_key: &str) -> Result<(), ApiKeyError> {
     use ApiKeyError::*;
 
-    if api_key.parse::<u32>().is_err() {
+    // Check that API key is 8 hexademical characters
+    if api_key.len() != 8 || !api_key.chars().all(|c| c.is_ascii_hexdigit()) {
         return Err(InvalidFormat);
     }
 
