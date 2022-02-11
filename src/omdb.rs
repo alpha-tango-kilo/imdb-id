@@ -260,7 +260,7 @@ pub fn test_api_key(api_key: &str) -> Result<(), ApiKeyError> {
     use ApiKeyError::*;
 
     // Check that API key is 8 hexademical characters
-    if api_key.len() != 8 || !api_key.chars().all(|c| c.is_ascii_hexdigit()) {
+    if !api_key_format_acceptable(api_key) {
         return Err(InvalidFormat);
     }
 
@@ -276,6 +276,10 @@ pub fn test_api_key(api_key: &str) -> Result<(), ApiKeyError> {
     } else {
         Err(UnexpectedStatus(status))
     }
+}
+
+fn api_key_format_acceptable(api_key: &str) -> bool {
+    api_key.len() == 8 && api_key.chars().all(|c| c.is_ascii_hexdigit())
 }
 
 fn base_query(api_key: &str, title: &str) -> Request {
@@ -302,7 +306,10 @@ mod unit_tests {
     use super::*;
 
     #[test]
-    fn api_key_u32_check() {
-        test_api_key("foo").unwrap_err();
+    fn api_key_format() {
+        assert!(!api_key_format_acceptable("fizzbuzz"));
+        assert!(!api_key_format_acceptable("3q;mgh3w"));
+        assert!(api_key_format_acceptable("13495632"));
+        assert!(api_key_format_acceptable("3a3d4e1f"));
     }
 }
