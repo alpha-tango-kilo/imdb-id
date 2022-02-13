@@ -116,24 +116,6 @@ pub struct Entry {
     pub media_type: String,
 }
 
-impl fmt::Display for Entry {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        use crossterm::style::{Attribute, Stylize};
-        // FIXME: this formatting doesn't work
-        write!(f, "{}: {} ", "Title:".bold(), self.title)?;
-        writeln!(f, "{}({})", Attribute::Dim, self.year)?;
-        writeln!(
-            f,
-            "{}: {:?}, {}: {}",
-            "Genres".bold(),
-            self.genres,
-            "Runtime".bold(),
-            self.runtime
-        )
-        // TODO: complete/more
-    }
-}
-
 /*
 Lists in OMDb are given like "Pete Docter, Bob Peterson, Tom McCarthy"
 This helper throws that into a SmallVec<[String; 3]>

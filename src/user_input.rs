@@ -126,23 +126,33 @@ mod tui {
         LeaveAlternateScreen,
     };
     use crossterm::{event, execute};
+    use lazy_static::lazy_static;
+    use std::error::Error;
     use std::fmt::Display;
     use std::io;
     use std::io::Stdout;
     use tui::backend::CrosstermBackend;
     use tui::layout::{Constraint, Direction, Layout};
-    use tui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph};
+    use tui::style::{Modifier, Style};
+    use tui::text::{Span, Spans};
+    use tui::widgets::{
+        Block, Borders, List, ListItem, ListState, Paragraph, Wrap,
+    };
     use tui::Terminal;
 
     const HIGHLIGHT_SYMBOL: &str = "> ";
     const MIN_MARGIN: usize = 1;
 
-    struct ListItemList<'a> {
-        items: Vec<ListItem<'a>>,
+    lazy_static! {
+        static ref BOLD: Style = Style::default().add_modifier(Modifier::BOLD);
+    }
+
+    struct ListItemList {
+        items: Vec<ListItem<'static>>,
         width: usize,
     }
 
-    impl<'a> ListItemList<'a> {
+    impl ListItemList {
         pub fn new<T: Display>(items: &[T], width: usize) -> Self {
             let items = items
                 .iter()
@@ -156,51 +166,16 @@ mod tui {
             ListItemList { items, width }
         }
 
-        pub fn items_cloned(&self) -> Vec<ListItem<'a>> {
+        pub fn items_cloned(&self) -> Vec<ListItem<'static>> {
             self.items.clone()
-        }
-    }
-
-    #[derive(Clone)]
-    struct EntryParagraph<'a> {
-        entry: Entry,
-        // TODO: could/should merge these two options
-        paragraph: Option<Paragraph<'a>>,
-        width: Option<usize>,
-    }
-
-    impl<'a> EntryParagraph<'a> {
-        pub fn new(entry: Entry) -> Self {
-            EntryParagraph {
-                entry,
-                paragraph: None,
-                width: None,
-            }
-        }
-
-        pub fn get(&mut self, width: usize) -> Paragraph {
-            if self.width.map(|w| w == width).unwrap_or(false) {
-                self.paragraph
-                    .as_ref()
-                    .expect("EntryParagraph had width set but not paragraph")
-                    .clone()
-            } else {
-                // Regenerate paragraph from entry
-                let mut s = self.entry.to_string();
-                textwrap::fill_inplace(&mut s, width);
-                let paragraph = Paragraph::new(s);
-                self.paragraph = Some(paragraph.clone());
-                self.width = Some(width);
-                paragraph
-            }
         }
     }
 
     struct StatefulList<'a> {
         state: ListState,
         underlying: &'a [SearchResult],
-        list_items: Option<ListItemList<'a>>,
-        list_entries: Vec<Option<EntryParagraph<'a>>>,
+        list_items: Option<ListItemList>,
+        entry_paragraphs: Vec<Option<Paragraph<'static>>>,
     }
 
     impl<'a> StatefulList<'a> {
@@ -216,7 +191,7 @@ mod tui {
                 state,
                 underlying: items,
                 list_items: None,
-                list_entries: vec![None; items.len()],
+                entry_paragraphs: vec![None; items.len()],
             }
         }
 
@@ -238,7 +213,7 @@ mod tui {
             self.state.select(Some(index));
         }
 
-        fn items(&mut self, width: usize) -> Vec<ListItem<'a>> {
+        fn items(&mut self, width: usize) -> Vec<ListItem<'static>> {
             match &self.list_items {
                 Some(li) if li.width == width => li.items_cloned(),
                 _ => {
@@ -250,23 +225,22 @@ mod tui {
             }
         }
 
-        fn fetch_entry(&mut self, api_key: &str) -> Result<(), RequestError> {
+        fn entry(
+            &mut self,
+            api_key: &str,
+        ) -> Result<Paragraph<'static>, RequestError> {
             let index = self.state.selected().unwrap();
-            if self.list_entries[index].is_none() {
-                // Make web request for entry
-                let imdb_id = &self.underlying[index].imdb_id;
-                let entry = get_entry(api_key, imdb_id)?;
-                self.list_entries[index] = Some(EntryParagraph::new(entry));
+            match &self.entry_paragraphs[index] {
+                Some(entry) => Ok(entry.clone()),
+                None => {
+                    // Make web request for entry
+                    let imdb_id = &self.underlying[index].imdb_id;
+                    let entry = get_entry(api_key, imdb_id)?;
+                    let paragraph = entry_to_paragraph(entry);
+                    self.entry_paragraphs[index] = Some(paragraph.clone());
+                    Ok(paragraph)
+                }
             }
-            Ok(())
-        }
-
-        fn entry(&mut self, width: usize) -> Paragraph<'_> {
-            let index = self.state.selected().unwrap();
-            self.list_entries[index]
-                .as_mut()
-                .expect("Entry has been requested but hasn't been fetched")
-                .get(width)
         }
 
         fn current(&self) -> usize {
@@ -293,9 +267,6 @@ mod tui {
         let mut terminal = Terminal::new(backend)?;
 
         loop {
-            // TODO: better error handling
-            status_list.fetch_entry(api_key).unwrap();
-
             terminal.draw(|f| {
                 let chunks = Layout::default()
                     .direction(Direction::Horizontal)
@@ -329,17 +300,16 @@ mod tui {
                     &mut status_list.state,
                 );
 
-                let width = chunks[1].width.saturating_sub(2) as usize;
-                let width = width.saturating_sub(MIN_MARGIN * 2);
-                // TODO: use Paragraph.wrap() instead of home baked solution
-                let entry = status_list.entry(width).block(
-                    Block::default().title("Information").borders(Borders::ALL),
-                );
-                f.render_widget(entry, chunks[1]);
+                match status_list.entry(api_key) {
+                    Ok(entry) => f.render_widget(entry, chunks[1]),
+                    Err(why) => {
+                        // Fall back on rendering the error as a Paragraph
+                        f.render_widget(error_to_paragraph(&why), chunks[1])
+                    }
+                }
             })?;
 
-            // Blocks until event - which is fine because we don't need to re-
-            // draw unless there has been input
+            // Blocks until key press or terminal resize
             if let Event::Key(key) = event::read()? {
                 match key.code {
                     KeyCode::Esc | KeyCode::Char('q') => {
@@ -364,5 +334,37 @@ mod tui {
     fn unwind(stdout: &mut CrosstermBackend<Stdout>) -> io::Result<()> {
         disable_raw_mode()?;
         execute!(stdout, LeaveAlternateScreen)
+    }
+
+    fn entry_to_paragraph(entry: Entry) -> Paragraph<'static> {
+        let Entry {
+            title, year, plot, ..
+        } = entry;
+        let text = vec![
+            // Line 1: title & year
+            Spans::from(vec![
+                Span::styled("Title: ", *BOLD),
+                Span::raw(title),
+                Span::styled(
+                    format!(" ({})", year),
+                    Style::default().add_modifier(Modifier::DIM),
+                ),
+            ]),
+            Spans::from(vec![Span::styled("Plot: ", *BOLD), Span::raw(plot)]),
+        ];
+
+        Paragraph::new(text)
+            .block(Block::default().title("Information").borders(Borders::ALL))
+            .wrap(Wrap { trim: false })
+    }
+
+    fn error_to_paragraph<E: Error>(error: &E) -> Paragraph<'static> {
+        let text = Spans::from(vec![
+            Span::styled("Failed to load entry", *BOLD),
+            Span::raw(error.to_string()),
+        ]);
+        Paragraph::new(text)
+            .block(Block::default().title("Uh oh").borders(Borders::ALL))
+            .wrap(Wrap { trim: false })
     }
 }

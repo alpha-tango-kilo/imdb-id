@@ -3,9 +3,9 @@ use clap::{App, AppSettings, Arg, ArgMatches};
 use OutputFormat::*;
 
 use itertools::Itertools;
+use std::io::{stdin, stdout};
 use std::str::FromStr;
 use trim_in_place::TrimInPlace;
-use std::io::{stdin, stdout};
 
 #[derive(Debug)]
 pub struct RuntimeConfig {
