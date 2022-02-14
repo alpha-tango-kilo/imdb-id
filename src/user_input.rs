@@ -59,7 +59,7 @@ fn omdb_sign_up() -> Result<(), SignUpError> {
         .default(String::from("Joe"))
         .interact_text()?;
     let last_name = Input::<String>::with_theme(THEME.deref())
-        .with_prompt("Please input your first name (OMDb requests this)")
+        .with_prompt("Please input your last name (OMDb requests this)")
         .default(String::from("Bloggs"))
         .interact_text()?;
     let r#use = "Searching the API with imdb-id (https://codeberg.org/alpha-tango-kilo/imdb-id)";
