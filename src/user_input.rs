@@ -350,6 +350,7 @@ mod tui {
                     Style::default().add_modifier(Modifier::DIM),
                 ),
             ]),
+            // Line 2: plot description
             Spans::from(vec![Span::styled("Plot: ", *BOLD), Span::raw(plot)]),
         ];
 
@@ -359,10 +360,10 @@ mod tui {
     }
 
     fn error_to_paragraph<E: Error>(error: &E) -> Paragraph<'static> {
-        let text = Spans::from(vec![
-            Span::styled("Failed to load entry", *BOLD),
-            Span::raw(error.to_string()),
-        ]);
+        let text = vec![
+            Spans::from(Span::styled("Failed to load entry", *BOLD)),
+            Spans::from(Span::raw(error.to_string())),
+        ];
         Paragraph::new(text)
             .block(Block::default().title("Uh oh").borders(Borders::ALL))
             .wrap(Wrap { trim: false })
