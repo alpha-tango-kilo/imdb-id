@@ -49,11 +49,14 @@ pub fn get_api_key() -> Result<String> {
 fn omdb_sign_up() -> Result<(), SignUpError> {
     let email = Input::<String>::with_theme(THEME.deref())
         .with_prompt("Please enter an email to receive your OMDb API key to")
-        .validate_with(|email: &String| match EMAIL_REGEX.is_match(email) {
-            true => Ok(()),
-            false => Err("Email appears to be invalid"),
+        .validate_with(|email: &String| {
+            match EMAIL_REGEX.is_match(&email.to_lowercase()) {
+                true => Ok(()),
+                false => Err("Email appears to be invalid"),
+            }
         })
-        .interact_text()?;
+        .interact_text()?
+        .to_lowercase();
     let first_name = Input::<String>::with_theme(THEME.deref())
         .with_prompt("Please input your first name (OMDb requests this)")
         .default(String::from("Joe"))
