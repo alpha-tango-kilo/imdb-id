@@ -4,12 +4,11 @@ use clap::ArgMatches;
 use lazy_static::lazy_static;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use smallvec::{smallvec, SmallVec};
-use std::cmp::{max, min};
+use std::cmp::min;
 use std::fmt;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
-use Genre::*;
+use MediaType::*;
 
 lazy_static! {
     // I'm so sorry, this is my compromise for easily getting the current year
@@ -24,60 +23,80 @@ lazy_static! {
 #[derive(Debug)]
 #[cfg_attr(test, derive(Eq, PartialEq))]
 pub struct Filters {
-    pub genres: SmallVec<[Genre; 3]>,
+    pub movie: bool,
+    pub series: bool,
     pub years: Option<Year>,
 }
 
 impl Filters {
     pub fn new(clap_matches: &ArgMatches) -> Result<Self> {
-        let mut genres = SmallVec::new();
-        if let Some(vs) = clap_matches.values_of("filter_genre") {
-            for v in vs {
-                genres.push(Genre::from_str(v)?);
+        let (movie, series) = match clap_matches.value_of("filter_type") {
+            Some(v) => {
+                let mut movie = false;
+                let mut series = false;
+                if v.eq_ignore_ascii_case("movie")
+                    || v.eq_ignore_ascii_case("movies")
+                {
+                    movie = true;
+                } else if v.eq_ignore_ascii_case("series") {
+                    series = true;
+                } else {
+                    return Err(RunError::InvalidMediaType(v.to_owned()));
+                }
+                (movie, series)
             }
-        }
+            None => (true, true),
+        };
 
+        // Match used so ? can be used
         let years = match clap_matches.value_of("filter_year") {
-            Some(year_str) => Year::from_str(year_str)?.into(),
+            Some(year_str) => Some(Year::from_str(year_str)?),
             None => None,
         };
 
-        Ok(Filters { genres, years })
+        Ok(Filters {
+            movie,
+            series,
+            years,
+        })
     }
 
     pub fn allows(&self, search_result: &SearchResult) -> bool {
-        let year_matches = match &self.years {
-            Some(year) => year.contains(&search_result.year),
-            None => true,
+        let year_matches = self
+            .years
+            .as_ref()
+            .map(|year| year.contains(&search_result.year))
+            .unwrap_or(true);
+        let media_type_matches = match search_result.media_type {
+            Movie => self.movie,
+            Series => self.series,
         };
-
-        let genre_matches = self.genres.is_empty()
-            || self.genres.iter().any(|allowed_genre| {
-                allowed_genre.eq(search_result.media_type.as_str())
-            });
-        //println!("{:?}\n^ year matches: {}, genre matches: {}", search_result, year_matches, genre_matches);
-        year_matches && genre_matches
+        year_matches && media_type_matches
     }
 
     pub fn combinations(&self) -> usize {
-        // `Other` genres are ignored as they aren't used when creating request
-        // bundles
-        let genres = max(
-            self.genres
-                .iter()
-                .filter(|g| !matches!(g, Other(_)))
-                .count(),
-            1,
-        );
-        let years = self.years.as_ref().map(|year| year.0.len()).unwrap_or(1);
-        genres * years
+        // self.media_type isn't accounted for because it's always 1 (either no
+        // parameters required or only 1 parameter set)
+        self.years.as_ref().map(|year| year.0.len()).unwrap_or(1)
+    }
+
+    pub fn media_type_option(&self) -> Option<MediaType> {
+        match (self.movie, self.series) {
+            (true, true) => None,
+            (true, false) => Some(Movie),
+            (false, true) => Some(Series),
+            _ => unreachable!(
+                "Within Filters movie and series should never both be false"
+            ),
+        }
     }
 }
 
 impl Default for Filters {
     fn default() -> Self {
         Filters {
-            genres: smallvec![],
+            movie: true,
+            series: true,
             years: None,
         }
     }
@@ -181,111 +200,90 @@ impl fmt::Display for Year {
     }
 }
 
-// These are the OMDb API supported genres to filter by
+// TODO: move to omdb.rs
+// These are the OMDb API supported media typers to filter by (episode has been
+// intentionally excluded as it always returns 0 results)
 // Serialize and Deserialize and implemented by hand
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 #[cfg_attr(test, derive(Eq, PartialEq))]
-pub enum Genre {
+pub enum MediaType {
     Movie,
     Series,
-    Episode,
-    Other(String),
 }
 
-impl Genre {
-    fn as_str(&self) -> &str {
-        self.as_ref()
-    }
-}
-
-impl AsRef<str> for Genre {
+impl AsRef<str> for MediaType {
     fn as_ref(&self) -> &str {
         match self {
             Movie => "movie",
             Series => "series",
-            Episode => "episode",
-            Other(s) => s,
         }
     }
 }
 
-impl FromStr for Genre {
-    type Err = RunError;
+impl FromStr for MediaType {
+    type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_lowercase().as_str() {
             "movie" => Ok(Movie),
             "series" => Ok(Series),
-            "episode" => Ok(Episode),
-            _ => Err(RunError::InvalidGenre(s.to_owned())),
+            _ => Err(()),
         }
     }
 }
 
-impl From<&str> for Genre {
-    fn from(s: &str) -> Self {
-        Self::from_str(s).unwrap_or_else(|_| Other(s.to_owned()))
-    }
-}
-
-impl PartialEq<str> for Genre {
-    fn eq(&self, other: &str) -> bool {
-        other.eq_ignore_ascii_case(self.as_str())
-    }
-}
-
-impl fmt::Display for Genre {
+impl fmt::Display for MediaType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.as_ref())
     }
 }
 
-// Serialize with Genre.as_str
-impl Serialize for Genre {
+// Serialize with MediaType.as_str
+impl Serialize for MediaType {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        serializer.serialize_str(self.as_str())
+        serializer.serialize_str(self.as_ref())
     }
 }
 
-// Deserialize with From<str> for Genre
-impl<'de> Deserialize<'de> for Genre {
+// Deserialize with FromStr
+impl<'de> Deserialize<'de> for MediaType {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        String::deserialize(deserializer).map(|s| Genre::from(s.as_str()))
+        String::deserialize(deserializer)?
+            .parse()
+            .map_err(|_| D::Error::custom("unrecognised media type"))
     }
 }
 
 #[cfg(test)]
 mod filters_unit_tests {
-    use crate::{Filters, Genre::*, Year};
-    use smallvec::smallvec;
+    use crate::{Filters, Year};
 
     #[test]
     fn combinations() {
         let filters = vec![
+            Filters::default(),
             Filters {
-                genres: smallvec![],
-                years: None,
-            },
-            Filters {
-                genres: smallvec![Movie, Series],
-                years: None,
-            },
-            Filters {
-                genres: smallvec![],
                 years: Some(Year(1960..=1970)),
+                ..Default::default()
             },
             Filters {
-                genres: smallvec![Movie, Episode],
+                movie: false,
+                series: true,
+                years: Some(Year(1985..=2000)),
+            },
+            Filters {
+                movie: true,
+                series: false,
                 years: Some(Year(1980..=2000)),
             },
         ];
-        let expected: Vec<usize> = vec![1, 2, 11, 42];
+        let expected: Vec<usize> = vec![1, 11, 16, 21];
 
         filters
             .iter()
@@ -302,25 +300,24 @@ mod filters_unit_tests {
 
     mod creation {
         use crate::filters::CURRENT_YEAR;
-        use crate::Genre::*;
         use crate::{Filters, RuntimeConfig, Year};
-        use smallvec::smallvec;
 
         #[test]
-        fn genre() {
+        fn media_type() {
             let clap = RuntimeConfig::create_clap_app();
             let clap_matches = clap
                 .try_get_matches_from(vec![
                     env!("CARGO_PKG_NAME"),
-                    "-g",
-                    "episode",
+                    "-t",
+                    "series",
                 ])
                 .unwrap();
             let filters = Filters::new(&clap_matches).unwrap();
             assert_eq!(
                 filters,
                 Filters {
-                    genres: smallvec![Episode],
+                    movie: false,
+                    series: true,
                     years: None,
                 }
             );
@@ -329,8 +326,7 @@ mod filters_unit_tests {
             let clap_matches = clap
                 .try_get_matches_from(vec![
                     env!("CARGO_PKG_NAME"),
-                    "-g",
-                    "Episode",
+                    "-t",
                     "Movie",
                 ])
                 .unwrap();
@@ -338,8 +334,8 @@ mod filters_unit_tests {
             assert_eq!(
                 filters,
                 Filters {
-                    genres: smallvec![Episode, Movie],
-                    years: None,
+                    series: false,
+                    ..Default::default()
                 }
             );
         }
@@ -358,8 +354,8 @@ mod filters_unit_tests {
             assert_eq!(
                 filters,
                 Filters {
-                    genres: smallvec![],
                     years: Some(Year(1980..=1980)),
+                    ..Default::default()
                 }
             );
 
@@ -375,8 +371,8 @@ mod filters_unit_tests {
             assert_eq!(
                 filters,
                 Filters {
-                    genres: smallvec![],
                     years: Some(Year(1980..=2010)),
+                    ..Default::default()
                 }
             );
 
@@ -392,8 +388,8 @@ mod filters_unit_tests {
             assert_eq!(
                 filters,
                 Filters {
-                    genres: smallvec![],
                     years: Some(Year(1980..=*CURRENT_YEAR)),
+                    ..Default::default()
                 }
             );
 
@@ -409,8 +405,8 @@ mod filters_unit_tests {
             assert_eq!(
                 filters,
                 Filters {
-                    genres: smallvec![],
                     years: Some(Year(0..=2010)),
+                    ..Default::default()
                 }
             );
         }
@@ -429,8 +425,8 @@ mod filters_unit_tests {
             assert_eq!(
                 filters,
                 Filters {
-                    genres: smallvec![],
                     years: Some(Year(1980..=2010)),
+                    ..Default::default()
                 }
             );
         }
@@ -443,16 +439,16 @@ mod filters_unit_tests {
                     env!("CARGO_PKG_NAME"),
                     "-y",
                     "1980-2010",
-                    "-g",
-                    "Movie",
-                    "episode",
+                    "-t",
+                    "Movies",
                 ])
                 .unwrap();
             let filters = Filters::new(&clap_matches).unwrap();
             assert_eq!(
                 filters,
                 Filters {
-                    genres: smallvec![Movie, Episode],
+                    movie: true,
+                    series: false,
                     years: Some(Year(1980..=2010)),
                 }
             );
@@ -461,52 +457,20 @@ mod filters_unit_tests {
 
     mod filtering {
         use crate::omdb::SearchResult;
-        use crate::Genre::*;
+        use crate::MediaType::*;
         use crate::{Filters, Year};
         use once_cell::sync::Lazy;
-        use smallvec::smallvec;
 
-        const TEST_DATA_SIZE: usize = 12;
+        const TEST_DATA_SIZE: usize = 6;
 
         static SEARCH_RESULTS: Lazy<[SearchResult; TEST_DATA_SIZE]> =
             Lazy::new(|| {
                 [
                     SearchResult {
-                        title: "Kingsman: The Secret Service".into(),
-                        imdb_id: "tt2802144".into(),
-                        media_type: Movie,
-                        year: Year(2014..=2014),
-                    },
-                    SearchResult {
-                        title: "The King's Man".into(),
-                        imdb_id: "tt6856242".into(),
-                        media_type: Movie,
-                        year: Year(2021..=2021),
-                    },
-                    SearchResult {
                         title: "Kingsman: The Golden Circle".into(),
                         imdb_id: "tt4649466".into(),
                         media_type: Movie,
                         year: Year(2017..=2017),
-                    },
-                    SearchResult {
-                        title: "Kingsman: The Secret Service Revealed".into(),
-                        imdb_id: "tt5026378".into(),
-                        media_type: "Video".into(),
-                        year: Year(2015..=2015),
-                    },
-                    SearchResult {
-                        title: "Kingsman: Inside the Golden Circle".into(),
-                        imdb_id: "tt7959890".into(),
-                        media_type: "Video".into(),
-                        year: Year(2017..=2017),
-                    },
-                    SearchResult {
-                        title: "Kingsman: Bespoke Lessons for Gentlemen Spies"
-                            .into(),
-                        imdb_id: "tt6597836".into(),
-                        media_type: "TV Series".into(),
-                        year: Year(2015..=2015),
                     },
                     SearchResult {
                         title: "King's Man".into(),
@@ -519,12 +483,6 @@ mod filters_unit_tests {
                         imdb_id: "tt0405676".into(),
                         media_type: Movie,
                         year: Year(2006..=2006),
-                    },
-                    SearchResult {
-                        title: "The Kingsman".into(),
-                        imdb_id: "tt13332408".into(),
-                        media_type: "TV Episode".into(),
-                        year: Year(2020..=2020),
                     },
                     SearchResult {
                         title: "All the King's Men".into(),
@@ -560,128 +518,62 @@ mod filters_unit_tests {
 
         #[test]
         fn unfiltered() {
-            let empty = Filters {
-                genres: smallvec![],
-                years: None,
-            };
-            assert_eq!(&get_outcomes(&empty), &[true; TEST_DATA_SIZE]);
-
             let default = Filters::default();
             assert_eq!(&get_outcomes(&default), &[true; TEST_DATA_SIZE]);
         }
 
         #[test]
-        fn genre_single() {
+        fn media_type_single() {
             let test = Filters {
-                genres: smallvec![Movie],
+                movie: true,
+                series: false,
                 years: None,
             };
-            let results = [
-                true, true, true, false, false, false, true, true, false, true,
-                false, false,
-            ];
+            let results = [true, true, true, true, false, false];
             assert_eq!(&get_outcomes(&test), &results);
 
             let test = Filters {
-                genres: smallvec!["Video".into()],
+                movie: false,
+                series: true,
                 years: None,
             };
-            let results = [
-                false, false, false, true, true, false, false, false, false,
-                false, false, false,
-            ];
-            assert_eq!(&get_outcomes(&test), &results);
-        }
-
-        #[test]
-        fn genre_multiple() {
-            let test = Filters {
-                genres: smallvec![Movie, "Video".into()],
-                years: None,
-            };
-            let results = [
-                true, true, true, true, true, false, true, true, false, true,
-                false, false,
-            ];
-            assert_eq!(&get_outcomes(&test), &results);
-
-            let test = Filters {
-                genres: smallvec!["Video".into(), "TV Episode".into()],
-                years: None,
-            };
-            let results = [
-                false, false, false, true, true, false, false, false, true,
-                false, false, false,
-            ];
-            assert_eq!(&get_outcomes(&test), &results);
-        }
-
-        #[test]
-        fn genre_case_insensitive() {
-            let test = Filters {
-                genres: smallvec!["movie".into()],
-                years: None,
-            };
-            let results = [
-                true, true, true, false, false, false, true, true, false, true,
-                false, false,
-            ];
-            assert_eq!(&get_outcomes(&test), &results);
-
-            let test = Filters {
-                genres: smallvec!["video".into()],
-                years: None,
-            };
-            let results = [
-                false, false, false, true, true, false, false, false, false,
-                false, false, false,
-            ];
+            let results = [false, false, false, false, true, true];
             assert_eq!(&get_outcomes(&test), &results);
         }
 
         #[test]
         fn years() {
             let test = Filters {
-                genres: smallvec![],
                 years: Some(Year(2020..=2021)),
+                ..Default::default()
             };
-            let results = [
-                false, true, false, false, false, false, false, false, true,
-                false, true, false,
-            ];
+            let results = [false, false, false, false, true, false];
             assert_eq!(&get_outcomes(&test), &results);
 
             let test = Filters {
-                genres: smallvec![],
                 years: Some(Year(1950..=2010)),
+                ..Default::default()
             };
-            let results = [
-                false, false, false, false, false, false, true, true, false,
-                false, false, true,
-            ];
+            let results = [false, true, true, false, false, true];
             assert_eq!(&get_outcomes(&test), &results);
         }
 
         #[test]
         fn mixed() {
             let test = Filters {
-                genres: smallvec![Movie],
+                movie: true,
+                series: false,
                 years: Some(Year(1950..=2010)),
             };
-            let results = [
-                false, false, false, false, false, false, true, true, false,
-                false, false, false,
-            ];
+            let results = [false, true, true, false, false, false];
             assert_eq!(&get_outcomes(&test), &results);
 
             let test = Filters {
-                genres: smallvec![Movie, "TV Episode".into()],
+                movie: false,
+                series: true,
                 years: Some(Year(2010..=2021)),
             };
-            let results = [
-                true, true, true, false, false, false, true, false, true,
-                false, false, false,
-            ];
+            let results = [false, false, false, false, true, false];
             assert_eq!(&get_outcomes(&test), &results);
         }
     }

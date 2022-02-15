@@ -44,19 +44,11 @@ impl RuntimeConfig {
                     .validator(|s| s.parse::<usize>().map_err(|_| ClapError::NotUsize)),
             )
             .arg(
-                Arg::new("filter_genre")
-                    .short('g')
-                    .long("genre")
-                    .help("Filters results to a specific genre (movie, series, episode)")
-                    .long_help(
-                        "Filters results to a specific genre (movie, series, episode)\n\
-                    Can be given multiple arguments or passed multiple times, \
-                    working as a chain of OR statements logically. \
-                    Filters are all case insensitive",
-                    )
-                    .takes_value(true)
-                    .multiple_values(true)
-                    .multiple_occurrences(true),
+                Arg::new("filter_type")
+                    .short('t')
+                    .long("type")
+                    .help("Filters results to a specific media type (movie or series)")
+                    .takes_value(true),
             )
             .arg(
                 Arg::new("filter_year")
@@ -345,11 +337,9 @@ mod unit_tests {
         let matches = clap
             .try_get_matches_from(vec![env!("CARGO_PKG_NAME"), "foo", "bar"])
             .unwrap();
-        let values = matches
-            .values_of("search_term")
-            .unwrap()
-            .collect::<Vec<_>>();
-        assert_eq!(values.len(), 2);
+        let search_term_word_count =
+            matches.values_of("search_term").unwrap().count();
+        assert_eq!(search_term_word_count, 2);
 
         let config = RuntimeConfig::process_matches(&matches).unwrap();
         assert_eq!(&config.search_term, "foo bar");

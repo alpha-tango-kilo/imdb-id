@@ -10,8 +10,8 @@ pub type Result<T, E = RunError> = std::result::Result<T, E>;
 pub enum RunError {
     #[error("Argument parsing problem: {0}")]
     Clap(#[from] ClapError),
-    #[error("Unsupported genre: {0}")]
-    InvalidGenre(String),
+    #[error("Unsupported media type: {0}")]
+    InvalidMediaType(String),
     #[error("Invalid year / year range: {0}")]
     InvalidYearRange(#[from] YearParseError),
     #[error("No search results")]
@@ -41,7 +41,7 @@ impl RunError {
          */
         match self {
             Clap(_) => 1,
-            InvalidGenre(_) => 1,
+            InvalidMediaType(_) => 1,
             InvalidYearRange(_) => 1,
             NoSearchResults => 1,
             MinReq(_) => 2,

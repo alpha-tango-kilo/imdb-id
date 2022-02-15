@@ -37,7 +37,7 @@ For a nicer solution to updating any Rust programs you have installed through Ca
 
 ```
 USAGE:
-    imdb-id [OPTIONS] [--] [search_term]...
+    imdb-id [OPTIONS] [search_term]...
 
 ARGS:
     <search_term>...
@@ -52,11 +52,6 @@ OPTIONS:
             Formats are only available if you opted-IN at installation
             All the formats imdb-id can support are: json, yaml
 
-    -g, --genre <filter_genre>...
-            Filters results to a specific genre (movie, series, episode)
-            Can be given multiple arguments or passed multiple times, working as a chain of OR
-            statements logically. Filters are all case insensitive
-
     -h, --help
             Print help information
 
@@ -65,6 +60,9 @@ OPTIONS:
 
     -r, --results <number_of_results>
             The maximum number of results to show from IMDb
+
+    -t, --type <filter_type>
+            Filters results to a specific media type (movie or series)
 
     -V, --version
             Print version information

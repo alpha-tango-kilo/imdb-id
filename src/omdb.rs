@@ -1,4 +1,4 @@
-use crate::{ApiKeyError, Filters, Genre, Result, RunError, Year};
+use crate::{ApiKeyError, Filters, MediaType, Result, RunError, Year};
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use minreq::Request;
@@ -6,9 +6,9 @@ use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize};
 use smallvec::{smallvec, SmallVec};
 use std::borrow::Cow;
-use std::env;
 use std::fmt::{self, Debug};
 use std::str::FromStr;
+use std::{env, iter};
 
 const DEFAULT_MAX_REQUESTS_PER_SEARCH: usize = 10;
 
@@ -71,7 +71,7 @@ pub struct SearchResult {
     #[serde(rename(deserialize = "imdbID"))]
     pub imdb_id: String,
     #[serde(rename(deserialize = "Type"))]
-    pub media_type: Genre,
+    pub media_type: MediaType,
 }
 
 impl fmt::Display for SearchResult {
@@ -100,46 +100,48 @@ where
     })
 }
 
+// Taking ownership of MediaType should always be cheap as it should never be
+// the Other(String) variant
 #[derive(Default, Debug)]
-struct FilterParameters<'a> {
-    genre: Option<&'a Genre>,
+struct FilterParameters {
+    media_type: Option<MediaType>,
     year: Option<u16>,
 }
 
-impl<'a> From<&'a Genre> for FilterParameters<'a> {
-    fn from(genre: &'a Genre) -> Self {
+impl From<MediaType> for FilterParameters {
+    fn from(media_type: MediaType) -> Self {
         FilterParameters {
-            genre: Some(genre),
+            media_type: Some(media_type),
             year: None,
         }
     }
 }
 
-impl<'a> From<u16> for FilterParameters<'a> {
+impl From<u16> for FilterParameters {
     fn from(year: u16) -> Self {
         FilterParameters {
-            genre: None,
+            media_type: None,
             year: Some(year),
         }
     }
 }
 
-impl<'a> From<(&'a Genre, u16)> for FilterParameters<'a> {
-    fn from((genre, year): (&'a Genre, u16)) -> Self {
+impl From<(u16, MediaType)> for FilterParameters {
+    fn from((year, media_type): (u16, MediaType)) -> Self {
         FilterParameters {
-            genre: Some(genre),
+            media_type: Some(media_type),
             year: Some(year),
         }
     }
 }
 
-impl<'a> fmt::Display for FilterParameters<'a> {
+impl fmt::Display for FilterParameters {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match (self.genre, self.year) {
-            (Some(genre), Some(year)) => {
-                write!(f, "genre '{genre}', year {year}")
+        match (&self.media_type, self.year) {
+            (Some(media_type), Some(year)) => {
+                write!(f, "{media_type}, year {year}")
             }
-            (Some(genre), None) => write!(f, "genre '{genre}'"),
+            (Some(media_type), None) => write!(f, "{media_type}"),
             (None, Some(year)) => write!(f, "year {year}"),
             (None, None) => write!(f, "no filters"),
         }
@@ -150,7 +152,7 @@ impl<'a> fmt::Display for FilterParameters<'a> {
 pub struct RequestBundle<'a> {
     api_key: &'a str,
     title: Cow<'a, str>,
-    params: SmallVec<[FilterParameters<'a>; DEFAULT_MAX_REQUESTS_PER_SEARCH]>,
+    params: SmallVec<[FilterParameters; DEFAULT_MAX_REQUESTS_PER_SEARCH]>,
 }
 
 impl<'a> RequestBundle<'a> {
@@ -166,13 +168,14 @@ impl<'a> RequestBundle<'a> {
                 *MAX_REQUESTS_PER_SEARCH
             );
         }
-        let Filters { genres, years } = filters;
-        let params = match (genres.as_slice(), years) {
-            (&[], None) => {
+
+        let params = match (filters.media_type_option(), filters.years.as_ref())
+        {
+            (None, None) => {
                 // No filters at all
                 smallvec![FilterParameters::default()]
             }
-            (&[], Some(years)) => {
+            (None, Some(years)) => {
                 // Just years specified
                 years
                     .0
@@ -181,24 +184,16 @@ impl<'a> RequestBundle<'a> {
                     .map(FilterParameters::from)
                     .collect::<SmallVec<_>>()
             }
-            (genres, None) => {
-                // Just genres specified
-                genres
-                    .iter()
-                    .filter(|genre| !matches!(genre, Genre::Other(_)))
-                    // The take should be redundant here as there are only
-                    // three supported genres/types currently. Consider this
-                    // future-proofing
-                    .take(*MAX_REQUESTS_PER_SEARCH)
-                    .map(FilterParameters::from)
-                    .collect::<SmallVec<_>>()
+            (Some(mt), None) => {
+                // Just media type specified
+                smallvec![FilterParameters::from(mt)]
             }
-            (genres, Some(years)) => {
-                // Both years and genre specified
-                genres
-                    .iter()
-                    .filter(|genre| !matches!(genre, Genre::Other(_)))
-                    .cartesian_product(years.0.clone())
+            (Some(mt), Some(years)) => {
+                // Both years and media type specified
+                years
+                    .0
+                    .clone()
+                    .zip(iter::repeat(mt))
                     .take(*MAX_REQUESTS_PER_SEARCH)
                     .map(FilterParameters::from)
                     .collect::<SmallVec<_>>()
@@ -217,9 +212,9 @@ impl<'a> RequestBundle<'a> {
             .map(|params| {
                 // Make request
                 let request = base_query(self.api_key, &self.title);
-                let request = match params.genre {
-                    Some(genre) => {
-                        request.with_param("type", genre.to_string())
+                let request = match &params.media_type {
+                    Some(mt) => {
+                        request.with_param("type", mt.to_string())
                     }
                     None => request,
                 };
