@@ -1,9 +1,9 @@
-use crate::{ApiKeyError, Filters, MediaType, Result, RunError, Year};
+use crate::{ApiKeyError, Filters, Result, RunError, Year};
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use minreq::Request;
 use serde::de::Error;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use smallvec::{smallvec, SmallVec};
 use std::borrow::Cow;
 use std::fmt::{self, Debug};
@@ -77,6 +77,67 @@ pub struct SearchResult {
 impl fmt::Display for SearchResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} ({}, {})", self.title, self.media_type, self.year)
+    }
+}
+
+// These are the OMDb API supported media typers to filter by (episode has been
+// intentionally excluded as it always returns 0 results)
+// Serialize and Deserialize and implemented by hand
+#[derive(Debug, Copy, Clone)]
+#[cfg_attr(test, derive(Eq, PartialEq))]
+pub enum MediaType {
+    Movie,
+    Series,
+}
+
+impl AsRef<str> for MediaType {
+    fn as_ref(&self) -> &str {
+        use MediaType::*;
+        match self {
+            Movie => "movie",
+            Series => "series",
+        }
+    }
+}
+
+impl FromStr for MediaType {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        use MediaType::*;
+        match s.to_ascii_lowercase().as_str() {
+            "movie" => Ok(Movie),
+            "series" => Ok(Series),
+            _ => Err(()),
+        }
+    }
+}
+
+impl fmt::Display for MediaType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.as_ref())
+    }
+}
+
+// Serialize with MediaType.as_str
+impl Serialize for MediaType {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(self.as_ref())
+    }
+}
+
+// Deserialize with FromStr
+impl<'de> Deserialize<'de> for MediaType {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        String::deserialize(deserializer)?
+            .parse()
+            .map_err(|_| D::Error::custom("unrecognised media type"))
     }
 }
 

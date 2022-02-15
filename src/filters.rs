@@ -1,4 +1,5 @@
-use crate::omdb::SearchResult;
+use crate::omdb::MediaType::*;
+use crate::omdb::{MediaType, SearchResult};
 use crate::{Result, RunError, YearParseError};
 use clap::ArgMatches;
 use lazy_static::lazy_static;
@@ -8,7 +9,6 @@ use std::cmp::min;
 use std::fmt;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
-use MediaType::*;
 
 lazy_static! {
     // I'm so sorry, this is my compromise for easily getting the current year
@@ -197,66 +197,6 @@ impl fmt::Display for Year {
             }
             Ok(())
         }
-    }
-}
-
-// TODO: move to omdb.rs
-// These are the OMDb API supported media typers to filter by (episode has been
-// intentionally excluded as it always returns 0 results)
-// Serialize and Deserialize and implemented by hand
-#[derive(Debug, Copy, Clone)]
-#[cfg_attr(test, derive(Eq, PartialEq))]
-pub enum MediaType {
-    Movie,
-    Series,
-}
-
-impl AsRef<str> for MediaType {
-    fn as_ref(&self) -> &str {
-        match self {
-            Movie => "movie",
-            Series => "series",
-        }
-    }
-}
-
-impl FromStr for MediaType {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_ascii_lowercase().as_str() {
-            "movie" => Ok(Movie),
-            "series" => Ok(Series),
-            _ => Err(()),
-        }
-    }
-}
-
-impl fmt::Display for MediaType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.as_ref())
-    }
-}
-
-// Serialize with MediaType.as_str
-impl Serialize for MediaType {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(self.as_ref())
-    }
-}
-
-// Deserialize with FromStr
-impl<'de> Deserialize<'de> for MediaType {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        String::deserialize(deserializer)?
-            .parse()
-            .map_err(|_| D::Error::custom("unrecognised media type"))
     }
 }
 
@@ -456,8 +396,7 @@ mod filters_unit_tests {
     }
 
     mod filtering {
-        use crate::omdb::SearchResult;
-        use crate::MediaType::*;
+        use crate::omdb::{MediaType::*, SearchResult};
         use crate::{Filters, Year};
         use once_cell::sync::Lazy;
 
