@@ -126,6 +126,7 @@ mod tui {
         LeaveAlternateScreen,
     };
     use crossterm::{event, execute};
+    use itertools::Itertools;
     use lazy_static::lazy_static;
     use std::error::Error;
     use std::fmt::Display;
@@ -338,7 +339,13 @@ mod tui {
 
     fn entry_to_paragraph(entry: Entry) -> Paragraph<'static> {
         let Entry {
-            title, year, plot, ..
+            title,
+            year,
+            runtime,
+            genres,
+            actors,
+            plot,
+            ..
         } = entry;
         let text = vec![
             // Line 1: title & year
@@ -350,7 +357,22 @@ mod tui {
                     Style::default().add_modifier(Modifier::DIM),
                 ),
             ]),
-            // Line 2: plot description
+            // Line 2: run time
+            Spans::from(vec![
+                Span::styled("Run time: ", *BOLD),
+                Span::raw(runtime),
+            ]),
+            // Line 3: genres
+            Spans::from(vec![
+                Span::styled("Genre(s): ", *BOLD),
+                Span::raw(format_list(&genres)),
+            ]),
+            // Line 4: actors
+            Spans::from(vec![
+                Span::styled("Actor(s): ", *BOLD),
+                Span::raw(format_list(&actors)),
+            ]),
+            // Line 5: plot description
             Spans::from(vec![Span::styled("Plot: ", *BOLD), Span::raw(plot)]),
         ];
 
@@ -367,5 +389,20 @@ mod tui {
         Paragraph::new(text)
             .block(Block::default().title("Uh oh").borders(Borders::ALL))
             .wrap(Wrap { trim: false })
+    }
+
+    fn format_list<S: Display>(strings: &[S]) -> String {
+        match strings.len() {
+            0 => String::new(),
+            1 => strings[0].to_string(),
+            2 => format!("{} and {}", strings[0], strings[1]),
+            _ => {
+                let mut buf = strings[..strings.len() - 1].iter().join(", ");
+                // Oxford comma hell yeah
+                buf.push_str(", and ");
+                buf.push_str(&strings[0].to_string());
+                buf
+            }
+        }
     }
 }
