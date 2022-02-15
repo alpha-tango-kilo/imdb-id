@@ -19,13 +19,11 @@ pub enum RunError {
     #[error("Issue with web request: {0}")]
     MinReq(#[from] minreq::Error),
     #[error("IO error: {0}")]
-    InputIo(#[from] std::io::Error),
+    Io(#[from] std::io::Error), // also handles saving to disk
     #[error("You couldn't find what you wanted :(")]
     NoDesiredSearchResults,
     #[error("Failed to serialise output data: {0}")]
     Serde(#[source] Box<dyn Error>),
-    #[error("No record found on OMDb for {0:?}")]
-    OmdbNotFound(String), // search term
     #[error("OMDb API returned an error: {0:?}")]
     OmdbError(String), // "Error" field of response
     #[error("Unrecognised response from OMDb, please raise an issue including the following text:\nSerde error: {1}\nJSON: \n```\n{0}\n```")]
@@ -45,10 +43,9 @@ impl RunError {
             InvalidYearRange(_) => 1,
             NoSearchResults => 1,
             MinReq(_) => 2,
-            InputIo(_) => 2,
+            Io(_) => 2,
             NoDesiredSearchResults => 0,
             Serde(_) => 2,
-            OmdbNotFound(_) => 1,
             OmdbError(_) => 3,
             OmdbUnrecognised(_, _) => 2,
         }
@@ -72,7 +69,6 @@ impl From<serde_yaml::Error> for RunError {
 Will be printed by Clap as such:
 error: Invalid value for '<arg>': <YOUR MESSAGE>
  */
-
 #[derive(Debug, Error)]
 pub enum ClapError {
     #[error("expected a positive integer")]
