@@ -80,45 +80,50 @@ impl fmt::Display for SearchResult {
     }
 }
 
+// TODO: make more things Options and convert "N/A" to None
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all(deserialize = "PascalCase"))]
 pub struct Entry {
     pub title: String,
     pub year: Year,
     #[serde(rename(deserialize = "Rated"))]
-    pub rating: String,
-    pub runtime: String,
+    pub rating: String, // can be N/A (on series?)
+    pub runtime: String, // can be N/A (on series?)
     #[serde(rename(deserialize = "Genre"), deserialize_with = "de_comma_list")]
     pub genres: SmallVec<[String; 3]>,
     #[serde(
         rename(deserialize = "Director"),
         deserialize_with = "de_comma_list"
     )]
-    pub directors: SmallVec<[String; 3]>,
+    pub directors: SmallVec<[String; 3]>, // can be N/A
     #[serde(
         rename(deserialize = "Writer"),
         deserialize_with = "de_comma_list"
     )]
-    pub writers: SmallVec<[String; 3]>,
+    pub writers: SmallVec<[String; 3]>, // can be N/A
     #[serde(deserialize_with = "de_comma_list")]
     pub actors: SmallVec<[String; 3]>,
-    pub plot: String,
-    pub language: String,
-    pub country: String,
-    #[serde(rename(deserialize = "imdbID"))]
-    pub imdb_id: String,
-    #[serde(
-        rename(deserialize = "imdbRating"),
-        deserialize_with = "de_stringified"
-    )]
-    pub imdb_rating: f32,
+    pub plot: String, // can be N/A
+    #[serde(deserialize_with = "de_comma_list")]
+    pub language: SmallVec<[String; 3]>,
+    #[serde(deserialize_with = "de_comma_list")]
+    pub country: SmallVec<[String; 3]>,
     #[serde(rename(deserialize = "Type"))]
-    pub media_type: String,
+    pub media_type: MediaType,
+    // Optional as movies don't have this, accessed via function
+    #[serde(
+        rename(deserialize = "totalSeasons"),
+        deserialize_with = "de_option_stringified",
+        default
+    )]
+    pub seasons: Option<u16>,
 }
 
 /*
 Lists in OMDb are given like "Pete Docter, Bob Peterson, Tom McCarthy"
 This helper throws that into a SmallVec<[String; 3]>
+TODO: make more general over stack size (move to tinyvec or remove small vector crates altogether)
+TODO: deduplicate? e.g. tt11031770 has duplicate genres
  */
 fn de_comma_list<'de, D>(d: D) -> Result<SmallVec<[String; 3]>, D::Error>
 where
@@ -146,6 +151,22 @@ where
             e
         ))
     })
+}
+
+fn de_option_stringified<'de, D, T>(d: D) -> Result<Option<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: FromStr,
+    <T as FromStr>::Err: Debug,
+{
+    let s = String::deserialize(d)?;
+    let t = T::from_str(&s).map_err(|e| {
+        D::Error::custom(format!(
+            "could not parse field as desired type ({:?})",
+            e
+        ))
+    })?;
+    Ok(Some(t))
 }
 
 // These are the OMDb API supported media typers to filter by (episode has been
@@ -387,6 +408,8 @@ fn api_key_format_acceptable(api_key: &str) -> bool {
     api_key.len() == 8 && api_key.chars().all(|c| c.is_ascii_hexdigit())
 }
 
+// TODO: serde's error is really uninformative if deserialisation fails
+//       Maybe if it fails, try deserialising to just T to get the error?
 pub fn get_entry(api_key: &str, imdb_id: &str) -> Result<Entry, RequestError> {
     let request = base_query(api_key).with_param("i", imdb_id);
 
@@ -407,6 +430,8 @@ fn base_query(api_key: &str) -> Request {
         .with_param("r", "json")
 }
 
+// TODO: serde's error is really uninformative if deserialisation fails
+//       Maybe if it fails, try deserialising to just T to get the error?
 fn send_omdb_search(request: Request) -> Result<SearchResults, RequestError> {
     let response = request.send()?;
     let body = response.as_str()?;

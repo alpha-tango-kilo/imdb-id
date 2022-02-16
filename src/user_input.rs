@@ -345,6 +345,7 @@ mod tui {
             genres,
             actors,
             plot,
+            seasons,
             ..
         } = entry;
         let text = vec![
@@ -359,7 +360,13 @@ mod tui {
             ]),
             // Line 2: run time
             Spans::from(vec![
-                Span::styled("Run time: ", *BOLD),
+                Span::styled("Seasons: ", *BOLD),
+                Span::raw(
+                    seasons
+                        .map(|n| n.to_string())
+                        .unwrap_or_else(|| String::from("N/A")),
+                ),
+                Span::styled(" Run time: ", *BOLD),
                 Span::raw(runtime),
             ]),
             // Line 3: genres
