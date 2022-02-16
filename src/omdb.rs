@@ -148,8 +148,7 @@ where
     T: FromStr,
     <T as FromStr>::Err: Debug,
 {
-    let s = String::deserialize(d)?;
-    T::from_str(&s).map_err(|e| {
+    String::deserialize(d)?.parse().map_err(|e| {
         D::Error::custom(format!(
             "could not parse field as desired type ({:?})",
             e
@@ -163,8 +162,7 @@ where
     T: FromStr,
     <T as FromStr>::Err: Debug,
 {
-    let s = String::deserialize(d)?;
-    let t = T::from_str(&s).map_err(|e| {
+    let t = String::deserialize(d)?.parse().map_err(|e| {
         D::Error::custom(format!(
             "could not parse field as desired type ({:?})",
             e
