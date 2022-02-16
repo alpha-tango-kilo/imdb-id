@@ -2,7 +2,7 @@ use crate::{ApiKeyError, Filters, MediaTypeParseError, RequestError, Year};
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use minreq::Request;
-use serde::de::Error;
+use serde::de::{DeserializeOwned, Error};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use smallvec::{smallvec, SmallVec};
 use std::borrow::Cow;
@@ -410,17 +410,9 @@ fn api_key_format_acceptable(api_key: &str) -> bool {
     api_key.len() == 8 && api_key.chars().all(|c| c.is_ascii_hexdigit())
 }
 
-// TODO: serde's error is really uninformative if deserialisation fails
-//       Maybe if it fails, try deserialising to just T to get the error?
 pub fn get_entry(api_key: &str, imdb_id: &str) -> Result<Entry, RequestError> {
     let request = base_query(api_key).with_param("i", imdb_id);
-
-    let response = request.send()?;
-    let body = response.as_str()?;
-
-    serde_json::from_str::<OmdbResult<Entry>>(body)
-        .map_err(|err| RequestError::Deserialisation(err, body.to_owned()))?
-        .into()
+    send_request_deserialise(request)
 }
 
 fn base_query(api_key: &str) -> Request {
@@ -432,16 +424,39 @@ fn base_query(api_key: &str) -> Request {
         .with_param("r", "json")
 }
 
-// TODO: serde's error is really uninformative if deserialisation fails
-//       Maybe if it fails, try deserialising to just T to get the error?
+// function is just a prettier, more explanatory name for
+// send_request_deserialise<SearchResults>
 fn send_omdb_search(request: Request) -> Result<SearchResults, RequestError> {
+    send_request_deserialise(request)
+}
+
+fn send_request_deserialise<T>(request: Request) -> Result<T, RequestError>
+where
+    T: DeserialisableWithinOmdbResult + DeserializeOwned + Debug,
+{
     let response = request.send()?;
     let body = response.as_str()?;
 
-    serde_json::from_str::<OmdbResult<SearchResults>>(body)
-        .map_err(|err| RequestError::Deserialisation(err, body.to_owned()))?
+    serde_json::from_str::<OmdbResult<T>>(body)
+        .map_err(|_| {
+            // We re-attempt parsing to get a more useful error out of serde
+            // If there's something bad in the SearchResults/Entry (usual
+            // cause), then getting the issue with that is more useful than
+            // "did not match untagged enum" or whatever
+            // Yes this is probably expensive, hopefully I won't be doing it
+            // often. This is the error path after all
+            let useful_err = serde_json::from_str::<T>(body).expect_err(
+                "Deserializing succeeded only when not wrapped in OmdbResult",
+            );
+            RequestError::Deserialisation(useful_err, body.to_owned())
+        })?
         .into()
 }
+
+// Type system protection to ensure send_request_deserialise is used safely
+trait DeserialisableWithinOmdbResult {}
+impl DeserialisableWithinOmdbResult for SearchResults {}
+impl DeserialisableWithinOmdbResult for Entry {}
 
 #[cfg(test)]
 mod unit_tests {
