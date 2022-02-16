@@ -26,6 +26,7 @@ serde_yaml = { version = ">=0.8.4", optional = true }
 # https://rustsec.org/advisories/RUSTSEC-2021-0003.html
 smallvec = ">=1.6.1"
 thiserror = "1.0"
+trim-in-place = "0.1"
 urlencoding = "2.1"
 
 [dependencies.clap]

@@ -194,6 +194,7 @@ dependencies = [
  "serde_yaml",
  "smallvec",
  "thiserror",
+ "trim-in-place",
  "urlencoding",
 ]
 
@@ -551,6 +552,12 @@ dependencies = [
  "quote",
  "syn",
 ]
+
+[[package]]
+name = "trim-in-place"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "50ae970a522c697c39de23b630ae81ff124f6291cc591a76c17d45b0ff1d4a88"
 
 [[package]]
 name = "unicode-width"

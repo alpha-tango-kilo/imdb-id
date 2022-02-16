@@ -3,6 +3,8 @@ use clap::{App, AppSettings, Arg, ArgMatches};
 use OutputFormat::*;
 
 use std::convert::TryFrom;
+use itertools::Itertools;
+use trim_in_place::TrimInPlace;
 
 pub struct RuntimeConfig {
     pub search_term: String,
@@ -101,17 +103,11 @@ impl RuntimeConfig {
 
     fn process_matches(clap_matches: &ArgMatches) -> Result<Self> {
         let search_term = match clap_matches.values_of("search_term") {
-            Some(vs) => {
-                // There has to be a better way than this
-                // ...apparently not really (without another dependency)
-                // https://stackoverflow.com/questions/56033289/join-iterator-of-str
-                let mut search_term = String::new();
-                vs.for_each(|v| {
-                    search_term.push_str(v);
-                    search_term.push(' ');
-                });
-                search_term.trim().into()
-            }
+            Some(mut vs) => {
+                let mut s = vs.join(" ");
+                s.trim_in_place();
+                s
+            },
             None => {
                 if cfg!(not(test)) {
                     user_input::get_search_term()?
