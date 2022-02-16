@@ -90,24 +90,24 @@ pub struct Entry {
     pub rating: String, // can be N/A (on series?)
     pub runtime: String, // can be N/A (on series?)
     #[serde(rename(deserialize = "Genre"), deserialize_with = "de_comma_list")]
-    pub genres: SmallVec<[String; 3]>,
+    pub genres: Vec<String>,
     #[serde(
         rename(deserialize = "Director"),
         deserialize_with = "de_comma_list"
     )]
-    pub directors: SmallVec<[String; 3]>, // can be N/A
+    pub directors: Vec<String>, // can be N/A
     #[serde(
         rename(deserialize = "Writer"),
         deserialize_with = "de_comma_list"
     )]
-    pub writers: SmallVec<[String; 3]>, // can be N/A
+    pub writers: Vec<String>, // can be N/A
     #[serde(deserialize_with = "de_comma_list")]
-    pub actors: SmallVec<[String; 3]>,
+    pub actors: Vec<String>,
     pub plot: String, // can be N/A
     #[serde(deserialize_with = "de_comma_list")]
-    pub language: SmallVec<[String; 3]>,
+    pub language: Vec<String>,
     #[serde(deserialize_with = "de_comma_list")]
-    pub country: SmallVec<[String; 3]>,
+    pub country: Vec<String>,
     #[serde(rename(deserialize = "Type"))]
     pub media_type: MediaType,
     // Optional as movies don't have this, accessed via function
@@ -121,16 +121,20 @@ pub struct Entry {
 
 /*
 Lists in OMDb are given like "Pete Docter, Bob Peterson, Tom McCarthy"
-This helper throws that into a SmallVec<[String; 3]>
-TODO: make more general over stack size (move to tinyvec or remove small vector crates altogether)
-TODO: deduplicate? e.g. tt11031770 has duplicate genres
+This helper throws that into a Vec<String>
  */
-fn de_comma_list<'de, D>(d: D) -> Result<SmallVec<[String; 3]>, D::Error>
+fn de_comma_list<'de, D>(d: D) -> Result<Vec<String>, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let s = String::deserialize(d)?;
-    Ok(s.split(", ").map(|s| s.into()).collect())
+    let vec = String::deserialize(d)?
+        .split(", ")
+        .map(ToOwned::to_owned)
+        // Deduplicates as some entries have duplicates from the API,
+        // e.g. tt11031770 has duplicate genres
+        .unique()
+        .collect();
+    Ok(vec)
 }
 
 /*
