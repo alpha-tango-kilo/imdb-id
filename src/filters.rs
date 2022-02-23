@@ -127,28 +127,39 @@ impl FromStr for Year {
     fn from_str(year_str: &str) -> Result<Self, Self::Err> {
         use YearParseError::*;
 
-        // TODO: warnings if year has to be modified
         match year_str.split_once(&Year::SEPARATORS[..]) {
             Some((start_str, end_str)) => {
                 let mut start = if !start_str.is_empty() {
-                    // Make sure arg isn't bigger than current year
-                    min(u16::from_str(start_str)?, *CURRENT_YEAR)
+                    let start = u16::from_str(start_str)?;
+                    // Make sure start isn't in the future
+                    if start > *CURRENT_YEAR {
+                        return Err(StartInFuture);
+                    }
+                    start
                 } else {
                     0
                 };
+
                 let mut end = if !end_str.is_empty() {
+                    let mut end = u16::from_str(end_str)?;
                     // Make sure arg isn't bigger than current year
-                    min(u16::from_str(end_str)?, *CURRENT_YEAR)
+                    if end > *CURRENT_YEAR {
+                        eprintln!("WARNING: using current year for end of date range instead");
+                        end = *CURRENT_YEAR;
+                    }
+                    end
                 } else if start_str.is_empty() {
                     return Err(NoYearsSpecified);
                 } else {
                     *CURRENT_YEAR
                 };
+
                 // Save the user from their silliness
                 if end < start {
-                    use std::mem;
-                    mem::swap(&mut start, &mut end);
+                    eprintln!("WARNING: looks like you put the date range in backwards, fixed that for you");
+                    std::mem::swap(&mut start, &mut end);
                 }
+
                 Ok(Year(start..=end))
             }
             None => {
@@ -526,25 +537,22 @@ mod year_unit_tests {
     use std::ops::RangeInclusive;
     use std::str::FromStr;
 
-    const STR_INPUTS: [&str; 7] = [
-        "1999",
-        "-1999",
-        "1999–",
-        "1920-1925",
-        "1000-800",
-        "2020–2021",
-        "2048-",
-    ];
-
     lazy_static! {
-        static ref YEARS: [RangeInclusive<u16>; 7] = [
+        static ref STR_INPUTS: Vec<&'static str> = vec![
+            "1999",
+            "-1999",
+            "1999–",
+            "1920-1925",
+            "1000-800",
+            "2020–2021",
+        ];
+        static ref YEARS: Vec<RangeInclusive<u16>> = vec![
             1999..=1999,
             0..=1999,
             1999..=*CURRENT_YEAR,
             1920..=1925,
             800..=1000,
             2020..=2021,
-            *CURRENT_YEAR..=*CURRENT_YEAR,
         ];
     }
 

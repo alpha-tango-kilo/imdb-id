@@ -166,6 +166,8 @@ pub enum YearParseError {
     InvalidInt(#[from] ParseIntError),
     #[error("no year was specified at either end of the range")]
     NoYearsSpecified,
+    #[error("start of date range is in the future")]
+    StartInFuture,
 }
 
 #[derive(Debug, Error)]
