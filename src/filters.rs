@@ -1,6 +1,6 @@
 use crate::omdb::MediaType::*;
 use crate::omdb::{MediaType, SearchResult};
-use crate::{Result, RunError, YearParseError};
+use crate::{ArgsError, MediaTypeParseError, YearParseError};
 use clap::ArgMatches;
 use lazy_static::lazy_static;
 use serde::de::Error;
@@ -29,7 +29,7 @@ pub struct Filters {
 }
 
 impl Filters {
-    pub fn new(clap_matches: &ArgMatches) -> Result<Self> {
+    pub fn new(clap_matches: &ArgMatches) -> Result<Self, ArgsError> {
         let (movie, series) = match clap_matches.value_of("filter_type") {
             Some(v) => {
                 let mut movie = false;
@@ -41,7 +41,7 @@ impl Filters {
                 } else if v.eq_ignore_ascii_case("series") {
                     series = true;
                 } else {
-                    return Err(RunError::InvalidMediaType(v.to_owned()));
+                    return Err(MediaTypeParseError(v.to_owned()).into());
                 }
                 (movie, series)
             }

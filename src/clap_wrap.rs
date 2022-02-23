@@ -1,11 +1,12 @@
-use crate::{user_input, ClapError, Filters, Result};
+use crate::{user_input, ArgsError, Filters, OutputFormatParseError};
 use clap::{App, AppSettings, Arg, ArgMatches};
 use OutputFormat::*;
 
-use std::convert::TryFrom;
 use itertools::Itertools;
+use std::str::FromStr;
 use trim_in_place::TrimInPlace;
 
+#[derive(Debug)]
 pub struct RuntimeConfig {
     pub search_term: String,
     pub interactive: bool,
@@ -16,7 +17,7 @@ pub struct RuntimeConfig {
 }
 
 impl RuntimeConfig {
-    pub fn new() -> Result<Self> {
+    pub fn new() -> Result<Self, ArgsError> {
         RuntimeConfig::process_matches(
             &RuntimeConfig::create_clap_app().get_matches(),
         )
@@ -24,6 +25,7 @@ impl RuntimeConfig {
 
     // public for testing purposes in filters.rs
     pub(crate) fn create_clap_app() -> clap::App<'static> {
+        // Note: any validation will be done in RuntimeConfig::process_matches
         App::new(env!("CARGO_PKG_NAME"))
             .version(env!("CARGO_PKG_VERSION"))
             .author("alpha-tango-kilo <git@heyatk.com>")
@@ -42,8 +44,7 @@ impl RuntimeConfig {
                     .long("results")
                     .help("The maximum number of results to show from IMDb")
                     .takes_value(true)
-                    .conflicts_with("non-interactive")
-                    .validator(|s| s.parse::<usize>().map_err(|_| ClapError::NotUsize)),
+                    .conflicts_with("non-interactive"),
             )
             .arg(
                 Arg::new("filter_type")
@@ -77,7 +78,6 @@ impl RuntimeConfig {
                     Formats are only available if you opted-IN at installation\n\
                     All the formats imdb-id can support are: json, yaml",
                     )
-                    .validator(|s| OutputFormat::try_from(s))
                     .takes_value(true),
             )
             .arg(
@@ -101,13 +101,13 @@ impl RuntimeConfig {
             ")
     }
 
-    fn process_matches(clap_matches: &ArgMatches) -> Result<Self> {
+    fn process_matches(clap_matches: &ArgMatches) -> Result<Self, ArgsError> {
         let search_term = match clap_matches.values_of("search_term") {
             Some(mut vs) => {
                 let mut s = vs.join(" ");
                 s.trim_in_place();
                 s
-            },
+            }
             None => {
                 if cfg!(not(test)) {
                     user_input::get_search_term()?
@@ -118,7 +118,7 @@ impl RuntimeConfig {
         };
 
         let format = match clap_matches.value_of("format") {
-            Some(s) => OutputFormat::try_from(s)?,
+            Some(s) => OutputFormat::from_str(s)?,
             None => RuntimeConfig::default().format,
         };
 
@@ -132,7 +132,7 @@ impl RuntimeConfig {
 
         let number_of_results = if interactive || format != Human {
             match clap_matches.value_of("number_of_results") {
-                Some(n) => n.parse().unwrap(),
+                Some(n) => n.parse()?,
                 None => RuntimeConfig::default().number_of_results,
             }
         } else {
@@ -173,24 +173,44 @@ pub enum OutputFormat {
     Yaml,
 }
 
-impl TryFrom<&str> for OutputFormat {
-    type Error = ClapError;
+impl FromStr for OutputFormat {
+    type Err = OutputFormatParseError;
 
-    fn try_from(s: &str) -> Result<Self, ClapError> {
-        let variant = match s.to_ascii_lowercase().as_str() {
-            "human" | "plain" => Human,
-            "json" => Json,
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        use OutputFormatParseError::*;
+        match s.to_ascii_lowercase().as_str() {
+            "human" | "plain" => Ok(Human),
+            "json" => Ok(Json),
             #[cfg(feature = "yaml")]
-            "yaml" => Yaml,
-            _ => return Err(ClapError::InvalidFormat),
-        };
-        Ok(variant)
+            "yaml" => Ok(Yaml),
+            #[cfg(not(feature = "yaml"))]
+            not_installed @ "yaml" => {
+                Err(NotInstalled(not_installed.to_owned()))
+            }
+            other => Err(Unrecognised(other.to_owned())),
+        }
     }
 }
 
 #[cfg(test)]
 mod unit_tests {
     use super::*;
+    use std::ffi::OsString;
+
+    // type constraints match `get_matches_from`
+    fn parse_args<I, T>(iter: I) -> Result<RuntimeConfig, ArgsError>
+    where
+        I: IntoIterator<Item = T>,
+        T: Into<OsString> + Clone,
+    {
+        let matches = RuntimeConfig::create_clap_app().get_matches_from(iter);
+        RuntimeConfig::process_matches(&matches)
+    }
+
+    #[test]
+    fn clap() {
+        RuntimeConfig::create_clap_app().debug_assert();
+    }
 
     #[test]
     fn help() {
@@ -258,16 +278,10 @@ mod unit_tests {
 
     #[test]
     fn results_invalid() {
-        let clap = RuntimeConfig::create_clap_app();
-        let err = clap
-            .try_get_matches_from(vec![
-                env!("CARGO_PKG_NAME"),
-                "--results",
-                "bar",
-                "foo",
-            ])
-            .unwrap_err();
-        assert_eq!(err.kind, clap::ErrorKind::ValueValidation);
+        let err =
+            parse_args(vec![env!("CARGO_PKG_NAME"), "--results", "bar", "foo"])
+                .unwrap_err();
+        assert!(matches!(err, ArgsError::NumberOfResults(_)));
     }
 
     #[test]
@@ -330,14 +344,14 @@ mod unit_tests {
     #[test]
     fn multiple_word_search_term() {
         let clap = RuntimeConfig::create_clap_app();
-        let matches = clap
+        let m = clap
             .try_get_matches_from(vec![env!("CARGO_PKG_NAME"), "foo", "bar"])
             .unwrap();
         let search_term_word_count =
-            matches.values_of("search_term").unwrap().count();
+            m.values_of("search_term").unwrap().count();
         assert_eq!(search_term_word_count, 2);
 
-        let config = RuntimeConfig::process_matches(&matches).unwrap();
+        let config = RuntimeConfig::process_matches(&m).unwrap();
         assert_eq!(&config.search_term, "foo bar");
     }
 
@@ -403,15 +417,14 @@ mod unit_tests {
 
     #[test]
     fn invalid_format() {
-        let clap = RuntimeConfig::create_clap_app();
-        let err = clap
-            .try_get_matches_from(vec![
-                env!("CARGO_PKG_NAME"),
-                "--format",
-                "foo",
-            ])
+        let err = parse_args(vec![env!("CARGO_PKG_NAME"), "--format", "foo"])
             .unwrap_err();
-        assert_eq!(err.kind, clap::ErrorKind::ValueValidation);
+        assert_eq!(
+            err,
+            ArgsError::OutputFormat(OutputFormatParseError::Unrecognised(
+                String::from("foo")
+            ))
+        );
     }
 
     #[test]

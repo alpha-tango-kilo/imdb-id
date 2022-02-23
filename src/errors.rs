@@ -1,88 +1,231 @@
 use std::error::Error;
+use std::fmt::Display;
 use std::io;
 use std::num::ParseIntError;
 use thiserror::Error;
-use RunError::*;
 
-pub type Result<T, E = RunError> = std::result::Result<T, E>;
-
-#[derive(Debug, Error)]
-pub enum RunError {
-    #[error("Argument parsing problem: {0}")]
-    Clap(#[from] ClapError),
-    #[error("Unsupported media type: {0}")]
-    InvalidMediaType(String),
-    #[error("Invalid year / year range: {0}")]
-    InvalidYearRange(#[from] YearParseError),
-    #[error("No search results")]
-    NoSearchResults,
-    #[error("Issue with web request: {0}")]
-    MinReq(#[from] minreq::Error),
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error), // also handles saving to disk
-    #[error("You couldn't find what you wanted :(")]
-    NoDesiredSearchResults,
-    #[error("Failed to serialise output data: {0}")]
-    Serde(#[source] Box<dyn Error>),
-    #[error("OMDb API returned an error: {0:?}")]
-    OmdbError(String), // "Error" field of response
-    #[error("Unrecognised response from OMDb, please raise an issue including the following text:\nSerde error: {1}\nJSON: \n```\n{0}\n```")]
-    OmdbUnrecognised(String, #[source] serde_json::Error), // raw response JSON
+// To be implemented on types that contain some non-fatal errors and wish to
+// take advantage of EmitNonFatal
+pub trait MaybeFatal {
+    fn is_fatal(&self) -> bool {
+        false
+    }
 }
 
-impl RunError {
+pub trait EmitNonFatal<E> {
+    fn emit_non_fatal(self) -> Result<(), E>;
+    fn emit_unconditional(self);
+}
+
+impl<E: MaybeFatal + Display> EmitNonFatal<E> for E {
+    fn emit_non_fatal(self) -> Result<(), E> {
+        if self.is_fatal() {
+            Err(self)
+        } else {
+            eprintln!("WARNING: {self}");
+            Ok(())
+        }
+    }
+
+    fn emit_unconditional(self) {
+        if self.is_fatal() {
+            panic!("emit_unconditional called on fatal error: {self}");
+        } else {
+            eprintln!("WARNING: {self}");
+        }
+    }
+}
+
+impl<E: MaybeFatal + Display> EmitNonFatal<E> for Result<(), E> {
+    fn emit_non_fatal(self) -> Result<(), E> {
+        match self {
+            Ok(()) => Ok(()),
+            Err(e) => {
+                if e.is_fatal() {
+                    Err(e)
+                } else {
+                    eprintln!("WARNING: {e}");
+                    Ok(())
+                }
+            }
+        }
+    }
+
+    fn emit_unconditional(self) {
+        if let Err(e) = self {
+            if e.is_fatal() {
+                panic!("emit_unconditional called on fatal error: {e}");
+            } else {
+                eprintln!("WARNING: {e}");
+            }
+        }
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum FinalError {
+    #[error("invalid commandline argument: {0}")]
+    Args(#[from] ArgsError),
+    #[error(transparent)]
+    Interaction(#[from] InteractivityError),
+    #[error("no search results :(")]
+    NoSearchResults,
+    #[error("failed to format output as requested: {0}")]
+    FormatOutput(Box<dyn Error>),
+}
+
+impl FinalError {
     pub fn error_code(&self) -> i32 {
+        use FinalError::*;
         /*
         0 for success
         1 for user error
         2 for program error
          */
         match self {
-            Clap(_) => 1,
-            InvalidMediaType(_) => 1,
-            InvalidYearRange(_) => 1,
-            NoSearchResults => 1,
-            MinReq(_) => 2,
-            Io(_) => 2,
-            NoDesiredSearchResults => 0,
-            Serde(_) => 2,
-            OmdbError(_) => 3,
-            OmdbUnrecognised(_, _) => 2,
+            Args(_) => 1,
+            // 0 if non-fatal, 2 if fatal
+            Interaction(inner) => (inner.is_fatal() as i32) * 2,
+            NoSearchResults => 0,
+            FormatOutput(_) => 2,
         }
     }
 }
 
-impl From<serde_json::Error> for RunError {
-    fn from(ser_err: serde_json::Error) -> Self {
-        Serde(Box::new(ser_err))
+impl MaybeFatal for FinalError {
+    fn is_fatal(&self) -> bool {
+        use FinalError::*;
+        match self {
+            Interaction(inner) => inner.is_fatal(),
+            _ => true,
+        }
+    }
+}
+
+impl From<serde_json::Error> for FinalError {
+    fn from(err: serde_json::Error) -> Self {
+        FinalError::FormatOutput(Box::new(err))
     }
 }
 
 #[cfg(feature = "yaml")]
-impl From<serde_yaml::Error> for RunError {
-    fn from(ser_err: serde_yaml::Error) -> Self {
-        Serde(Box::new(ser_err))
+impl From<serde_yaml::Error> for FinalError {
+    fn from(err: serde_yaml::Error) -> Self {
+        FinalError::FormatOutput(Box::new(err))
     }
 }
 
-/*
-Will be printed by Clap as such:
-error: Invalid value for '<arg>': <YOUR MESSAGE>
- */
 #[derive(Debug, Error)]
-pub enum ClapError {
-    #[error("expected a positive integer")]
-    NotUsize,
-    #[error("invalid format\nIf you think this should have worked, please ensure you installed the tool with the required features\nSee the project README for more information")]
-    InvalidFormat,
+pub enum ArgsError {
+    #[error("bad number of results: {0}")]
+    NumberOfResults(#[from] ParseIntError),
+    #[error("bad year: {0}")]
+    NotYear(#[from] YearParseError),
+    #[error("bad output format: {0}")]
+    OutputFormat(#[from] OutputFormatParseError),
+    #[error(transparent)]
+    MediaType(#[from] MediaTypeParseError),
+    #[error(transparent)]
+    SearchTerm(#[from] InteractivityError),
+}
+
+/*
+Can't derive this because we don't want to inspect into InteractivityError we
+don't want to derive PartialEq for InteractivityError because io::Error doesn't
+implement it, thus rendering the entire exercise useless, so we might as well
+deal with it at this high level
+ */
+#[cfg(test)]
+impl PartialEq for ArgsError {
+    fn eq(&self, other: &Self) -> bool {
+        use ArgsError::*;
+        match (self, other) {
+            (NumberOfResults(a), NumberOfResults(b)) => a == b,
+            (NotYear(a), NotYear(b)) => a == b,
+            (OutputFormat(a), OutputFormat(b)) => a == b,
+            (MediaType(a), MediaType(b)) => a == b,
+            (SearchTerm(_), SearchTerm(_)) => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug, Error)]
+#[cfg_attr(test, derive(PartialEq))]
+pub enum OutputFormatParseError {
+    #[error("this format isn't supported because you didn't enable it at compile time.\nYou can 'enable' this by running `cargo install imdb-id --force --features {0}`")]
+    NotInstalled(String),
+    #[error("{0:?} is not a recognised output format")]
+    Unrecognised(String),
+}
+
+#[derive(Debug, Error)]
+#[cfg_attr(test, derive(PartialEq))]
 pub enum YearParseError {
     #[error(transparent)]
     InvalidInt(#[from] ParseIntError),
     #[error("no year was specified at either end of the range")]
     NoYearsSpecified,
+}
+
+#[derive(Debug, Error)]
+#[cfg_attr(test, derive(PartialEq))]
+#[error("unrecognised media type {0:?}")]
+pub struct MediaTypeParseError(pub String);
+
+#[derive(Debug, Error)]
+pub enum InteractivityError {
+    #[error("user aborted operation")]
+    Cancel,
+    #[error("unexpected CLI error {0}\nIf you were just trying to stop running the program, please create an issue about this")]
+    Dialoguer(io::Error),
+}
+
+impl MaybeFatal for InteractivityError {
+    fn is_fatal(&self) -> bool {
+        matches!(self, InteractivityError::Dialoguer(_))
+    }
+}
+
+impl From<io::Error> for InteractivityError {
+    fn from(err: io::Error) -> Self {
+        use InteractivityError::*;
+        match err.kind() {
+            io::ErrorKind::NotConnected => Cancel,
+            _ => Dialoguer(err),
+        }
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum RequestError {
+    #[error("issue with request: {0}")]
+    Web(#[from] minreq::Error),
+    #[error("unrecognised response from OMDb, please raise an issue including the following text:\nSerde error: {0}\nJSON: \n```\n{1}\n```")]
+    Deserialisation(serde_json::Error, String),
+    #[error("OMDb gave us an error: {0}")]
+    Omdb(String),
+}
+
+#[derive(Debug, Error)]
+pub enum SignUpError {
+    #[error(transparent)]
+    Interactivity(#[from] InteractivityError),
+    #[error(transparent)]
+    MinReq(#[from] minreq::Error),
+    #[error("response didn't indicate success")]
+    NeedleNotFound,
+}
+
+impl MaybeFatal for SignUpError {
+    fn is_fatal(&self) -> bool {
+        use SignUpError::*;
+        match self {
+            Interactivity(inner) => inner.is_fatal(),
+            MinReq(_) => true,
+            NeedleNotFound => false,
+        }
+    }
 }
 
 #[derive(Debug, Error)]
@@ -97,12 +240,19 @@ pub enum ApiKeyError {
     UnexpectedStatus(i32),
 }
 
+// Always printed "WARNING: {DiskError}", as these are never fatal errors
 #[derive(Debug, Error)]
-pub enum SignUpError {
-    #[error(transparent)]
-    Dialoguer(#[from] io::Error),
-    #[error(transparent)]
-    MinReq(#[from] minreq::Error),
-    #[error("response didn't indicate success")]
-    NeedleNotFound,
+pub enum DiskError {
+    #[error("config file does not exist at {0}")] // this is never seen
+    NotFound(&'static str), // path (converted lossy)
+    #[error("failed to read saved config: {0}")]
+    Read(io::Error),
+    #[error("failed to interpret saved config at {1}: {0}")]
+    Deserialise(#[source] serde_json::Error, &'static str), // path (converted lossy)
+    #[error("failed to save config: {0}")]
+    Write(io::Error),
+    #[error("failed to convert config to JSON for writing: {0}")]
+    Serialise(serde_json::Error),
 }
+
+impl MaybeFatal for DiskError {}

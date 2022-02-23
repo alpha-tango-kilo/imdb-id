@@ -1,4 +1,4 @@
-use crate::{ApiKeyError, Filters, Result, RunError, Year};
+use crate::{ApiKeyError, Filters, MediaTypeParseError, RequestError, Year};
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use minreq::Request;
@@ -28,11 +28,11 @@ enum OmdbResult {
     Ok(SearchResults),
 }
 
-impl From<OmdbResult> for Result<SearchResults> {
+impl From<OmdbResult> for Result<SearchResults, RequestError> {
     fn from(omdb_result: OmdbResult) -> Self {
         match omdb_result {
             OmdbResult::Ok(sr) => Ok(sr),
-            OmdbResult::Err(e) => Err(RunError::OmdbError(e.error)),
+            OmdbResult::Err(e) => Err(RequestError::Omdb(e.error)),
         }
     }
 }
@@ -101,14 +101,14 @@ impl AsRef<str> for MediaType {
 }
 
 impl FromStr for MediaType {
-    type Err = ();
+    type Err = MediaTypeParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         use MediaType::*;
         match s.to_ascii_lowercase().as_str() {
             "movie" => Ok(Movie),
             "series" => Ok(Series),
-            _ => Err(()),
+            _ => Err(MediaTypeParseError(s.to_owned())),
         }
     }
 }
@@ -348,12 +348,12 @@ fn base_query(api_key: &str, title: &str) -> Request {
         .with_param("r", "json")
 }
 
-fn send_omdb_search(request: Request) -> Result<SearchResults> {
+fn send_omdb_search(request: Request) -> Result<SearchResults, RequestError> {
     let body = request.send()?;
     let body = body.as_str()?;
 
     serde_json::from_str::<OmdbResult>(body)
-        .map_err(|err| RunError::OmdbUnrecognised(body.to_owned(), err))?
+        .map_err(|err| RequestError::Deserialisation(err, body.to_owned()))?
         .into()
 }
 

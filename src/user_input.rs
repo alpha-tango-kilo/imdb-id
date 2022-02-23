@@ -1,6 +1,5 @@
 use crate::omdb::test_api_key;
-use crate::RunError::NoDesiredSearchResults;
-use crate::{Result, SignUpError};
+use crate::{InteractivityError, SignUpError};
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::{Confirm, Input, Select};
 use lazy_regex::{lazy_regex, Lazy, Regex};
@@ -8,6 +7,8 @@ use lazy_static::lazy_static;
 use minreq::get;
 use std::fmt::Display;
 use std::ops::Deref;
+
+type Result<T, E = InteractivityError> = std::result::Result<T, E>;
 
 const SIGN_UP_URL: &str = "https://www.omdbapi.com/apikey.aspx";
 const AUTOMATED_SIGN_UP_URL: &str = "https://www.omdbapi.com/apikey.aspx?__EVENTTARGET=&__EVENTARGUMENT=&__LASTFOCUS=&__VIEWSTATE=%2FwEPDwUKLTIwNDY4MTIzNQ9kFgYCAQ9kFggCAQ8QDxYCHgdDaGVja2VkaGRkZGQCAw8QDxYCHwBnZGRkZAIFDxYCHgdWaXNpYmxlaGQCBw8WAh8BZ2QCAg8WAh8BaGQCAw8WAh8BaGQYAQUeX19Db250cm9sc1JlcXVpcmVQb3N0QmFja0tleV9fFgMFC3BhdHJlb25BY2N0BQtwYXRyZW9uQWNjdAUIZnJlZUFjY3SZmkfBgEVOtEhBRPgn0xJZZDjfMEiMoho3O8lIVPYLXg%3D%3D&__VIEWSTATEGENERATOR=5E550F58&__EVENTVALIDATION=%2FwEdAAhq8u7G6E8iNQTDLBqGZykXmSzhXfnlWWVdWIamVouVTzfZJuQDpLVS6HZFWq5fYphdL1XrNEjnC%2FKjNya%2Bmqh8hRPnM5dWgso2y7bj7kVNLSFbtYIt24Lw6ktxrd5Z67%2F4LFSTzFfbXTFN5VgQX9Nbzfg78Z8BXhXifTCAVkevd2U20ItIGqFIf8giu%2B0PAasvwu4KgXUo9rywyT%2ByOXGt&at=freeAcct&Button1=Submit";
@@ -55,16 +56,19 @@ fn omdb_sign_up() -> Result<(), SignUpError> {
                 false => Err("Email appears to be invalid"),
             }
         })
-        .interact_text()?
+        .interact_text()
+        .map_err(InteractivityError::from)?
         .to_lowercase();
     let first_name = Input::<String>::with_theme(THEME.deref())
         .with_prompt("Please input your first name (OMDb requests this)")
         .default(String::from("Joe"))
-        .interact_text()?;
+        .interact_text()
+        .map_err(InteractivityError::from)?;
     let last_name = Input::<String>::with_theme(THEME.deref())
         .with_prompt("Please input your last name (OMDb requests this)")
         .default(String::from("Bloggs"))
-        .interact_text()?;
+        .interact_text()
+        .map_err(InteractivityError::from)?;
     let r#use = "Searching the API with imdb-id (https://codeberg.org/alpha-tango-kilo/imdb-id)";
 
     let request = get(format!(
@@ -101,5 +105,5 @@ pub fn choose_result_from<E: Display>(entries: &[E]) -> Result<&E> {
         .items(entries)
         .interact_opt()?
         .map(|index| &entries[index])
-        .ok_or(NoDesiredSearchResults)
+        .ok_or(InteractivityError::Cancel)
 }

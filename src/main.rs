@@ -13,20 +13,19 @@ pub use user_input::{choose_result_from, get_api_key};
 
 use omdb::RequestBundle;
 use std::cmp::min;
-use std::{io, process};
+use std::process;
 use OutputFormat::*;
 
 fn main() {
-    ctrlc::set_handler(|| process::exit(-1))
-        .expect("Failed to set Ctrl-C handler");
-
     if let Err(why) = app() {
-        eprintln!("Error: {why}");
-        process::exit(why.error_code());
+        if why.is_fatal() {
+            eprintln!("Error: {why}");
+            process::exit(why.error_code());
+        }
     }
 }
 
-fn app() -> Result<()> {
+fn app() -> Result<(), FinalError> {
     let runtime_config = RuntimeConfig::new()?;
     // If an API key is given using the --api-key arg, prefer this over stored
     // value
@@ -43,10 +42,11 @@ fn app() -> Result<()> {
                 config.validate()?;
                 config
             }
-            Err(e) => match e.kind() {
-                io::ErrorKind::NotFound => OnDiskConfig::new_from_prompt()?,
-                _ => return Err(e.into()),
-            },
+            Err(e) => {
+                // DiskError on read is never fatal, so unwrap is fine
+                e.emit_unconditional();
+                OnDiskConfig::new_from_prompt()?
+            }
         },
     };
 
@@ -61,8 +61,8 @@ fn app() -> Result<()> {
         Human => {
             if search_results.is_empty() {
                 // This isn't run otherwise due to the immediate return
-                disk_config.save()?;
-                return Err(RunError::NoSearchResults);
+                disk_config.save().emit_unconditional();
+                return Err(FinalError::NoSearchResults);
             } else if !runtime_config.interactive || search_results.len() == 1 {
                 let search_result = &search_results[0];
                 if runtime_config.interactive {
@@ -94,7 +94,6 @@ fn app() -> Result<()> {
         }
     }
 
-    disk_config.save()?;
-
+    disk_config.save().emit_unconditional();
     Ok(())
 }
