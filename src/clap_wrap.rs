@@ -415,8 +415,21 @@ mod unit_tests {
         }
     }
 
+    #[cfg(not(feature = "yaml"))]
     #[test]
-    fn invalid_format() {
+    fn not_installed_format() {
+        let err = parse_args(vec![env!("CARGO_PKG_NAME"), "--format", "yaml"])
+            .unwrap_err();
+        assert_eq!(
+            err,
+            ArgsError::OutputFormat(OutputFormatParseError::NotInstalled(
+                String::from("yaml")
+            ))
+        );
+    }
+
+    #[test]
+    fn unrecognised_format() {
         let err = parse_args(vec![env!("CARGO_PKG_NAME"), "--format", "foo"])
             .unwrap_err();
         assert_eq!(
