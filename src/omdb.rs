@@ -80,37 +80,41 @@ impl fmt::Display for SearchResult {
     }
 }
 
-// TODO: make more things Options and convert "N/A" to None
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all(deserialize = "PascalCase"))]
 pub struct Entry {
     pub title: String,
     pub year: Year,
-    #[serde(rename(deserialize = "Rated"))]
-    pub rating: String, // can be N/A (on series?)
-    pub runtime: String, // can be N/A (on series?)
+    #[serde(
+        rename(deserialize = "Rated"),
+        deserialize_with = "de_option_parseable"
+    )]
+    pub rating: Option<String>, // can be N/A (on series?)
+    #[serde(deserialize_with = "de_option_parseable")]
+    pub runtime: Option<String>, // can be N/A (on series?)
     #[serde(rename(deserialize = "Genre"), deserialize_with = "de_comma_list")]
     pub genres: Vec<String>,
     #[serde(
         rename(deserialize = "Director"),
-        deserialize_with = "de_comma_list"
+        deserialize_with = "de_option_comma_list"
     )]
-    pub directors: Vec<String>, // can be N/A
+    pub directors: Option<Vec<String>>, // can be N/A
     #[serde(
         rename(deserialize = "Writer"),
-        deserialize_with = "de_comma_list"
+        deserialize_with = "de_option_comma_list"
     )]
-    pub writers: Vec<String>, // can be N/A
+    pub writers: Option<Vec<String>>, // can be N/A
     #[serde(deserialize_with = "de_comma_list")]
     pub actors: Vec<String>,
-    pub plot: String, // can be N/A
+    #[serde(deserialize_with = "de_option_parseable")]
+    pub plot: Option<String>, // can be N/A
     #[serde(deserialize_with = "de_comma_list")]
     pub language: Vec<String>,
     #[serde(deserialize_with = "de_comma_list")]
     pub country: Vec<String>,
     #[serde(rename(deserialize = "Type"))]
     pub media_type: MediaType,
-    // Optional as movies don't have this, accessed via function
+    // #[serde(default)] as movies don't have this
     #[serde(
         rename(deserialize = "totalSeasons"),
         deserialize_with = "de_option_parseable",
@@ -121,20 +125,49 @@ pub struct Entry {
 
 /*
 Lists in OMDb are given like "Pete Docter, Bob Peterson, Tom McCarthy"
-This helper throws that into a Vec<String>
+This helper could throw that into a Vec<String>
  */
-fn de_comma_list<'de, D>(d: D) -> Result<Vec<String>, D::Error>
+fn de_comma_list<'de, D, T>(d: D) -> Result<Vec<T>, D::Error>
 where
     D: Deserializer<'de>,
+    T: FromStr + PartialEq,
+    <T as FromStr>::Err: fmt::Display,
 {
-    let vec = String::deserialize(d)?
-        .split(", ")
-        .map(ToOwned::to_owned)
-        // Deduplicates as some entries have duplicates from the API,
-        // e.g. tt11031770 has duplicate genres
-        .unique()
-        .collect();
-    Ok(vec)
+    // TODO: something more graceful than panicking
+    let ts = de_option_comma_list(d)?.expect(
+        "Unexpected N/A value\n\
+        Please raise an issue, \
+        making sure you at least state what you searched, \
+        or preferably the entry that caused the issue",
+    );
+    Ok(ts)
+}
+
+fn de_option_comma_list<'de, D, T>(d: D) -> Result<Option<Vec<T>>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: FromStr + PartialEq,
+    <T as FromStr>::Err: fmt::Display,
+{
+    let s = String::deserialize(d)?;
+    let option = if s != "N/A" {
+        let mut ts = Vec::new();
+        for s in s.split(", ") {
+            let t = s.parse().map_err(D::Error::custom)?;
+            // Deduplicate as some entries have duplicates from the API,
+            // e.g. tt11031770 has duplicate genres
+            // This will only ever be done on small vectors so I would imagine
+            // using a HashSet to do duplicate detection would be less
+            // efficient
+            if !ts.contains(&t) {
+                ts.push(t);
+            }
+        }
+        Some(ts)
+    } else {
+        None
+    };
+    Ok(option)
 }
 
 /*
@@ -148,6 +181,7 @@ where
     T: FromStr,
     <T as FromStr>::Err: fmt::Display,
 {
+    // TODO: something more graceful than panicking
     let t = de_option_parseable(d)?.expect(
         "Unexpected N/A value\n\
         Please raise an issue, \
@@ -484,6 +518,8 @@ mod unit_tests {
         assert!(api_key_format_acceptable("3a3d4e1f"));
     }
 
+    // TODO: "N/A" tests
+
     const INPUTS: [&str; 4] = [
         // Up
         r#"{"Title":"Up","Year":"2009","Rated":"PG","Released":"29 May 2009","Runtime":"96 min","Genre":"Animation, Adventure, Comedy","Director":"Pete Docter, Bob Peterson","Writer":"Pete Docter, Bob Peterson, Tom McCarthy","Actors":"Edward Asner, Jordan Nagai, John Ratzenberger","Plot":"78-year-old Carl Fredricksen travels to Paradise Falls in his house equipped with balloons, inadvertently taking a young stowaway.","Language":"English","Country":"United States","Awards":"Won 2 Oscars. 79 wins & 87 nominations total","Poster":"https://m.media-amazon.com/images/M/MV5BMTk3NDE2NzI4NF5BMl5BanBnXkFtZTgwNzE1MzEyMTE@._V1_SX300.jpg","Ratings":[{"Source":"Internet Movie Database","Value":"8.2/10"},{"Source":"Rotten Tomatoes","Value":"98%"},{"Source":"Metacritic","Value":"88/100"}],"Metascore":"88","imdbRating":"8.2","imdbVotes":"966,025","imdbID":"tt1049413","Type":"movie","DVD":"21 Nov 2015","BoxOffice":"$293,004,164","Production":"Pixar Animation Studios","Website":"N/A","Response":"True"}"#,
@@ -524,14 +560,16 @@ mod unit_tests {
             vec!["Pete Docter", "Bob Peterson"],
             vec!["Sam Mendes"],
             vec!["Matthew Vaughn"],
-            vec!["N/A"],
         ];
         DESERIALISED
             .iter()
             .map(|entry| &entry.directors)
             .zip(directors.iter())
             .for_each(|(actual, expected)| {
-                assert_eq!(actual.as_slice(), expected.as_slice())
+                assert_eq!(
+                    actual.as_ref().unwrap().as_slice(),
+                    expected.as_slice()
+                )
             });
 
         let writers = [
@@ -545,7 +583,10 @@ mod unit_tests {
             .map(|entry| &entry.writers)
             .zip(writers.iter())
             .for_each(|(actual, expected)| {
-                assert_eq!(actual.as_slice(), expected.as_slice())
+                assert_eq!(
+                    actual.as_ref().unwrap().as_slice(),
+                    expected.as_slice()
+                )
             });
 
         let actors = [

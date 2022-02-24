@@ -273,6 +273,8 @@ mod tui {
         let mut terminal =
             Terminal::new(backend).map_err(InteractivityError::Tui)?;
 
+        // Could gag stdout/stderr with https://lib.rs/crates/gag if this is
+        // needed in the future
         loop {
             terminal
                 .draw(|f| {
@@ -360,42 +362,63 @@ mod tui {
             seasons,
             ..
         } = entry;
-        let text = vec![
-            // Line 1: title & year
-            Spans::from(vec![
-                Span::styled("Title: ", *BOLD),
-                Span::raw(title),
-                Span::styled(
-                    format!(" ({})", year),
-                    Style::default().add_modifier(Modifier::DIM),
-                ),
-            ]),
-            // Line 2: run time
-            Spans::from(vec![
-                Span::styled("Seasons: ", *BOLD),
-                Span::raw(
-                    seasons
-                        .map(|n| n.to_string())
-                        .unwrap_or_else(|| String::from("N/A")),
-                ),
-                Span::styled(" Run time: ", *BOLD),
-                Span::raw(runtime),
-            ]),
-            // Line 3: genres
-            Spans::from(vec![
-                Span::styled("Genre(s): ", *BOLD),
-                Span::raw(format_list(&genres)),
-            ]),
-            // Line 4: actors
-            Spans::from(vec![
-                Span::styled("Actor(s): ", *BOLD),
-                Span::raw(format_list(&actors)),
-            ]),
-            // Line 5: plot description
-            Spans::from(vec![Span::styled("Plot: ", *BOLD), Span::raw(plot)]),
-        ];
+        let mut information = Vec::with_capacity(5);
+        // Line 1: title & year
+        information.push(Spans::from(vec![
+            Span::styled("Title: ", *BOLD),
+            Span::raw(title),
+            Span::styled(
+                format!(" ({})", year),
+                Style::default().add_modifier(Modifier::DIM),
+            ),
+        ]));
+        // Line 2: run time
+        match (seasons, runtime) {
+            (Some(seasons), Some(runtime)) => {
+                // e.g. Seasons: 6 (45 minutes per episode)
+                information.push(Spans::from(vec![
+                    Span::styled("Seasons: ", *BOLD),
+                    Span::raw(seasons.to_string()),
+                    Span::raw(" ("),
+                    Span::raw(runtime),
+                    Span::raw(" per episode)"),
+                ]));
+            }
+            (Some(seasons), None) => {
+                // e.g. Seasons: 6
+                information.push(Spans::from(vec![
+                    Span::styled("Seasons: ", *BOLD),
+                    Span::raw(seasons.to_string()),
+                ]));
+            }
+            (None, Some(runtime)) => {
+                // e.g. Run time: 120 minutes
+                information.push(Spans::from(vec![
+                    Span::styled("Run time: ", *BOLD),
+                    Span::raw(runtime),
+                ]));
+            }
+            (None, None) => {}
+        }
+        // Line 3: genres
+        information.push(Spans::from(vec![
+            Span::styled("Genre(s): ", *BOLD),
+            Span::raw(format_list(&genres)),
+        ]));
+        // Line 4: actors
+        information.push(Spans::from(vec![
+            Span::styled("Actor(s): ", *BOLD),
+            Span::raw(format_list(&actors)),
+        ]));
+        // Line 5: plot
+        if let Some(plot) = plot {
+            information.push(Spans::from(vec![
+                Span::styled("Plot: ", *BOLD),
+                Span::raw(plot),
+            ]));
+        }
 
-        Paragraph::new(text)
+        Paragraph::new(information)
             .block(Block::default().title("Information").borders(Borders::ALL))
             .wrap(Wrap { trim: false })
     }
