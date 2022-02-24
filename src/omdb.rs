@@ -133,13 +133,8 @@ where
     T: FromStr + PartialEq,
     <T as FromStr>::Err: fmt::Display,
 {
-    // TODO: something more graceful than panicking
-    let ts = de_option_comma_list(d)?.expect(
-        "Unexpected N/A value\n\
-        Please raise an issue, \
-        making sure you at least state what you searched, \
-        or preferably the entry that caused the issue",
-    );
+    let ts = de_option_comma_list(d)?
+        .ok_or_else(|| D::Error::custom("unexpected N/A value"))?;
     Ok(ts)
 }
 
@@ -181,13 +176,8 @@ where
     T: FromStr,
     <T as FromStr>::Err: fmt::Display,
 {
-    // TODO: something more graceful than panicking
-    let t = de_option_parseable(d)?.expect(
-        "Unexpected N/A value\n\
-        Please raise an issue, \
-        making sure you at least state what you searched, \
-        or preferably the entry that caused the issue",
-    );
+    let t = de_option_parseable(d)?
+        .ok_or_else(|| D::Error::custom("unexpected N/A value"))?;
     Ok(t)
 }
 
