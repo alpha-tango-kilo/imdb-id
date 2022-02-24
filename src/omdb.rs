@@ -51,7 +51,7 @@ pub struct SearchResults {
     pub entries: Vec<SearchResult>,
     #[serde(
         rename(deserialize = "totalResults"),
-        deserialize_with = "de_stringified"
+        deserialize_with = "de_parseable"
     )]
     pub total_results: u32, // not used or cared about currently
 }
@@ -113,7 +113,7 @@ pub struct Entry {
     // Optional as movies don't have this, accessed via function
     #[serde(
         rename(deserialize = "totalSeasons"),
-        deserialize_with = "de_option_stringified",
+        deserialize_with = "de_option_parseable",
         default
     )]
     pub seasons: Option<u16>,
@@ -142,33 +142,41 @@ OMDb returns all values as JSON strings, even those that aren't, like ratings
 This helper can be given to serde to try and convert those elements to a more
 useful type, like u16 for years
  */
-fn de_stringified<'de, D, T>(d: D) -> Result<T, D::Error>
+fn de_parseable<'de, D, T>(d: D) -> Result<T, D::Error>
 where
     D: Deserializer<'de>,
     T: FromStr,
-    <T as FromStr>::Err: Debug,
+    <T as FromStr>::Err: fmt::Display,
 {
-    String::deserialize(d)?.parse().map_err(|e| {
-        D::Error::custom(format!(
-            "could not parse field as desired type ({:?})",
-            e
-        ))
-    })
+    let t = de_option_parseable(d)?.expect(
+        "Unexpected N/A value\n\
+        Please raise an issue, \
+        making sure you at least state what you searched, \
+        or preferably the entry that caused the issue",
+    );
+    Ok(t)
 }
 
-fn de_option_stringified<'de, D, T>(d: D) -> Result<Option<T>, D::Error>
+/*
+OMDb sometimes (not always, not never) includes fields that it doesn't have
+anything useful to provide for, giving the value of said fields as "N/A". This
+function produces an Option<T>, where T can be parsed using FromStr. "N/A"
+cases will return None
+ */
+fn de_option_parseable<'de, D, T>(d: D) -> Result<Option<T>, D::Error>
 where
     D: Deserializer<'de>,
     T: FromStr,
-    <T as FromStr>::Err: Debug,
+    <T as FromStr>::Err: fmt::Display,
 {
-    let t = String::deserialize(d)?.parse().map_err(|e| {
-        D::Error::custom(format!(
-            "could not parse field as desired type ({:?})",
-            e
-        ))
-    })?;
-    Ok(Some(t))
+    let s = String::deserialize(d)?;
+    let option = if s != "N/A" {
+        let t = s.parse().map_err(D::Error::custom)?;
+        Some(t)
+    } else {
+        None
+    };
+    Ok(option)
 }
 
 // These are the OMDb API supported media typers to filter by (episode has been
@@ -228,7 +236,7 @@ impl<'de> Deserialize<'de> for MediaType {
     {
         String::deserialize(deserializer)?
             .parse()
-            .map_err(|_| D::Error::custom("unrecognised media type"))
+            .map_err(D::Error::custom)
     }
 }
 
