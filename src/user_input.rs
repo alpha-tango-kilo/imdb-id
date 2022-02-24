@@ -132,7 +132,6 @@ mod tui {
     use crossterm::{event, execute};
     use itertools::Itertools;
     use lazy_static::lazy_static;
-    use std::error::Error;
     use std::fmt::Display;
     use std::io;
     use std::io::Stdout;
@@ -423,11 +422,16 @@ mod tui {
             .wrap(Wrap { trim: false })
     }
 
-    fn error_to_paragraph<E: Error>(error: &E) -> Paragraph<'static> {
-        let text = vec![
-            Spans::from(Span::styled("Failed to load entry", *BOLD)),
-            Spans::from(Span::raw(error.to_string())),
-        ];
+    fn error_to_paragraph(error: &RequestError) -> Paragraph<'static> {
+        let mut text =
+            vec![Spans::from(Span::styled("Failed to load entry", *BOLD))];
+
+        // Interpret newlines by putting each line in its own Spans
+        // Makes RequestError::Deserialisation present far more nicely
+        for line in error.to_string().lines() {
+            text.push(Spans::from(line.to_owned()));
+        }
+
         Paragraph::new(text)
             .block(Block::default().title("Uh oh").borders(Borders::ALL))
             .wrap(Wrap { trim: false })
