@@ -33,7 +33,8 @@ pub mod cli {
         let has_key = Confirm::with_theme(THEME.deref())
             .with_prompt("Do you have an OMDb API key?")
             .default(false)
-            .interact()?;
+            .interact()
+            .map_err(InteractivityError::from_cli)?;
 
         if !has_key {
             if let Err(why) = omdb_sign_up() {
@@ -47,7 +48,8 @@ pub mod cli {
         let api_key = Input::with_theme(THEME.deref())
             .with_prompt("Please enter your API key")
             .validate_with(|api_key: &String| test_api_key(api_key))
-            .interact_text()?;
+            .interact_text()
+            .map_err(InteractivityError::from_cli)?;
 
         Ok(api_key)
     }
@@ -64,18 +66,18 @@ pub mod cli {
                 }
             })
             .interact_text()
-            .map_err(InteractivityError::from)?
+            .map_err(InteractivityError::from_cli)?
             .to_lowercase();
         let first_name = Input::<String>::with_theme(THEME.deref())
             .with_prompt("Please input your first name (OMDb requests this)")
             .default(String::from("Joe"))
             .interact_text()
-            .map_err(InteractivityError::from)?;
+            .map_err(InteractivityError::from_cli)?;
         let last_name = Input::<String>::with_theme(THEME.deref())
             .with_prompt("Please input your last name (OMDb requests this)")
             .default(String::from("Bloggs"))
             .interact_text()
-            .map_err(InteractivityError::from)?;
+            .map_err(InteractivityError::from_cli)?;
         let r#use = "Searching the API with imdb-id (https://codeberg.org/alpha-tango-kilo/imdb-id)";
 
         let request = get(format!(
@@ -102,7 +104,8 @@ pub mod cli {
             .with_prompt(
                 "Please enter the name of the movie/show you're looking for",
             )
-            .interact_text()?;
+            .interact_text()
+            .map_err(InteractivityError::from_cli)?;
         Ok(question)
     }
 
@@ -110,7 +113,8 @@ pub mod cli {
         Select::with_theme(THEME.deref())
             .with_prompt("Pick the correct search result (Esc or Q to quit)")
             .items(entries)
-            .interact_opt()?
+            .interact_opt()
+            .map_err(InteractivityError::from_cli)?
             .map(|index| &entries[index])
             .ok_or(InteractivityError::Cancel)
     }
@@ -260,61 +264,68 @@ mod tui {
         let mut stdout = io::stdout();
 
         // Crossterm setup
-        enable_raw_mode()?;
-        execute!(stdout, EnterAlternateScreen)?;
+        enable_raw_mode().map_err(InteractivityError::Crossterm)?;
+        execute!(stdout, EnterAlternateScreen)
+            .map_err(InteractivityError::Crossterm)?;
         let backend = CrosstermBackend::new(stdout);
 
         // TUI
-        let mut terminal = Terminal::new(backend)?;
+        let mut terminal =
+            Terminal::new(backend).map_err(InteractivityError::Tui)?;
 
         loop {
-            terminal.draw(|f| {
-                let chunks = Layout::default()
-                    .direction(Direction::Horizontal)
-                    .margin(1)
-                    .constraints(
-                        [
-                            Constraint::Percentage(40),
-                            Constraint::Percentage(60),
-                        ]
-                        .as_slice(),
-                    )
-                    .split(f.size());
+            terminal
+                .draw(|f| {
+                    let chunks = Layout::default()
+                        .direction(Direction::Horizontal)
+                        .margin(1)
+                        .constraints(
+                            [
+                                Constraint::Percentage(40),
+                                Constraint::Percentage(60),
+                            ]
+                            .as_slice(),
+                        )
+                        .split(f.size());
 
-                // subtract width of borders
-                let width = chunks[0].width.saturating_sub(2) as usize;
-                let width = width.saturating_sub(HIGHLIGHT_SYMBOL.len());
-                let width = width.saturating_sub(MIN_MARGIN);
-                let items = status_list.items(width);
+                    // subtract width of borders
+                    let width = chunks[0].width.saturating_sub(2) as usize;
+                    let width = width.saturating_sub(HIGHLIGHT_SYMBOL.len());
+                    let width = width.saturating_sub(MIN_MARGIN);
+                    let items = status_list.items(width);
 
-                let selection_list = List::new(items)
-                    .block(
-                        Block::default()
-                            .title("Search results")
-                            .borders(Borders::ALL),
-                    )
-                    .highlight_symbol(HIGHLIGHT_SYMBOL);
+                    let selection_list = List::new(items)
+                        .block(
+                            Block::default()
+                                .title("Search results")
+                                .borders(Borders::ALL),
+                        )
+                        .highlight_symbol(HIGHLIGHT_SYMBOL);
 
-                f.render_stateful_widget(
-                    selection_list,
-                    chunks[0],
-                    &mut status_list.state,
-                );
+                    f.render_stateful_widget(
+                        selection_list,
+                        chunks[0],
+                        &mut status_list.state,
+                    );
 
-                match status_list.entry(api_key) {
-                    Ok(entry) => f.render_widget(entry, chunks[1]),
-                    Err(why) => {
-                        // Fall back on rendering the error as a Paragraph
-                        f.render_widget(error_to_paragraph(&why), chunks[1])
+                    match status_list.entry(api_key) {
+                        Ok(entry) => f.render_widget(entry, chunks[1]),
+                        Err(why) => {
+                            // Fall back on rendering the error as a Paragraph
+                            f.render_widget(error_to_paragraph(&why), chunks[1])
+                        }
                     }
-                }
-            })?;
+                })
+                .map_err(InteractivityError::Tui)?;
 
             // Blocks until key press or terminal resize
-            if let Event::Key(key) = event::read()? {
+            if let Event::Key(key) =
+                event::read().map_err(InteractivityError::Crossterm)?
+            {
                 match key.code {
                     KeyCode::Esc | KeyCode::Char('q') => {
-                        unwind(terminal.backend_mut())?;
+                        unwind(terminal.backend_mut())
+                            .map_err(InteractivityError::Crossterm)?;
                         return Ok(None);
                     }
                     KeyCode::Enter => break,
@@ -326,7 +337,8 @@ mod tui {
         }
 
         // Crossterm unwind
-        unwind(terminal.backend_mut())?;
+        unwind(terminal.backend_mut())
+            .map_err(InteractivityError::Crossterm)?;
         let chosen = &entries[status_list.current()];
         Ok(Some(chosen))
     }

@@ -179,9 +179,11 @@ pub struct MediaTypeParseError(pub String);
 pub enum InteractivityError {
     #[error("user aborted operation")]
     Cancel,
-    #[error("unexpected CLI error {0}\nIf you were just trying to stop running the program, please create an issue about this")]
+    #[error("unexpected CLI error: {0}\nIf you were just trying to stop running the program, please create an issue about this")]
     Dialoguer(io::Error),
-    #[error("unexpected TUI error {0}")]
+    #[error("unexpected crossterm error: {0}")]
+    Crossterm(io::Error),
+    #[error("unexpected TUI error: {0}")]
     Tui(io::Error),
 }
 
@@ -191,9 +193,8 @@ impl MaybeFatal for InteractivityError {
     }
 }
 
-// FIXME: don't assume it's Dialoguer here now that we have Tui
-impl From<io::Error> for InteractivityError {
-    fn from(err: io::Error) -> Self {
+impl InteractivityError {
+    pub fn from_cli(err: io::Error) -> Self {
         use InteractivityError::*;
         match err.kind() {
             io::ErrorKind::NotConnected => Cancel,
