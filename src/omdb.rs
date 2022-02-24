@@ -405,13 +405,7 @@ impl<'a> RequestBundle<'a> {
             .map(|(_, sr)| sr)
             // I've noticed some duplicates coming through even from the API
             // directly, so might as well use itertools now I have it
-            // Have to parse the IMDb ID to a number because the value must be
-            // Copy
-            .unique_by(|sr| {
-                sr.imdb_id[2..]
-                    .parse::<u32>()
-                    .unwrap_or_else(|_| panic!("Invalid IMDb ID (not numerical after 2 characters) in {:#?}", sr))
-            })
+            .unique_by(|sr| sr.imdb_id.clone())
             .collect()
     }
 }
