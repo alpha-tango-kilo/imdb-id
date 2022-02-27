@@ -131,7 +131,7 @@ impl RuntimeConfig {
             interactive &= stdin().is_tty();
         }
 
-        let number_of_results = if interactive || format != Human {
+        let number_of_results = if interactive || !matches!(format, Human) {
             match clap_matches.value_of("number_of_results") {
                 Some(n) => n.parse()?,
                 None => RuntimeConfig::default().number_of_results,
@@ -166,7 +166,8 @@ impl Default for RuntimeConfig {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug)]
+#[cfg_attr(test, derive(Eq, PartialEq))]
 pub enum OutputFormat {
     Human,
     Json,

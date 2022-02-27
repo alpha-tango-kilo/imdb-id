@@ -10,7 +10,8 @@ use smallvec::{smallvec, SmallVec};
 use std::borrow::Cow;
 use std::fmt::{self, Debug};
 use std::str::FromStr;
-use std::{env, iter};
+use std::time::Duration;
+use std::{env, iter, thread};
 
 const DEFAULT_MAX_REQUESTS_PER_SEARCH: usize = 10;
 
@@ -372,8 +373,14 @@ impl<'a> RequestBundle<'a> {
         }
     }
 
-    pub fn get_results(&self) -> Result<Vec<SearchResult>, RequestError> {
+    pub fn get_results(
+        &self,
+        allow_reading_time: bool,
+    ) -> Result<Vec<SearchResult>, RequestError> {
         let mut result_sets = Vec::with_capacity(self.params.len());
+        // Number of milliseconds to allow the user to read any warnings they
+        // get. Additional time added for each error message
+        let mut reading_time = 0;
 
         for params in self.params.iter() {
             // Build request
@@ -393,6 +400,7 @@ impl<'a> RequestBundle<'a> {
                 Err(fatal) if fatal.is_fatal() => return Err(fatal),
                 Err(warn) => {
                     eprintln!("Problem with request ({params}): {warn}");
+                    reading_time += 200;
                     continue;
                 }
             }
@@ -410,6 +418,13 @@ impl<'a> RequestBundle<'a> {
             // directly, so might as well use itertools now I have it
             .unique_by(|sr| sr.imdb_id.clone())
             .collect::<Vec<SearchResult>>();
+
+        // No need to give reading time if there are no results as the TUI
+        // won't be opened
+        if allow_reading_time && !results.is_empty() && reading_time > 0 {
+            thread::sleep(Duration::from_millis(reading_time));
+        }
+
         Ok(results)
     }
 }
