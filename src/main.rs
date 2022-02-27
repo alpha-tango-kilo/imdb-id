@@ -56,7 +56,7 @@ fn app() -> Result<(), FinalError> {
         &runtime_config.search_term,
         &runtime_config.filters,
     );
-    let search_results = search_bundle.get_results();
+    let search_results = search_bundle.get_results()?;
 
     match runtime_config.format {
         Human => {

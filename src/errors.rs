@@ -68,6 +68,8 @@ pub enum FinalError {
     Args(#[from] ArgsError),
     #[error(transparent)]
     Interaction(#[from] InteractivityError),
+    #[error(transparent)]
+    Request(#[from] RequestError), // should only ever be fatal
     #[error("no search results :(")]
     NoSearchResults,
     #[error("failed to format output as requested: {0}")]
@@ -83,11 +85,11 @@ impl FinalError {
         2 for program error
          */
         match self {
+            NoSearchResults => 0,
             Args(_) => 1,
+            Request(_) | FormatOutput(_) => 2,
             // 0 if non-fatal, 2 if fatal
             Interaction(inner) => (inner.is_fatal() as i32) * 2,
-            NoSearchResults => 0,
-            FormatOutput(_) => 2,
         }
     }
 }
@@ -211,6 +213,13 @@ pub enum RequestError {
     Deserialisation(serde_json::Error, String),
     #[error("OMDb gave us an error: {0}")]
     Omdb(String),
+}
+
+impl MaybeFatal for RequestError {
+    fn is_fatal(&self) -> bool {
+        use RequestError::Omdb;
+        !matches!(self, Omdb(_))
+    }
 }
 
 #[derive(Debug, Error)]

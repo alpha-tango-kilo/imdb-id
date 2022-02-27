@@ -1,4 +1,6 @@
-use crate::{ApiKeyError, Filters, MediaTypeParseError, RequestError, Year};
+use crate::{
+    ApiKeyError, Filters, MaybeFatal, MediaTypeParseError, RequestError, Year,
+};
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use minreq::Request;
@@ -370,34 +372,35 @@ impl<'a> RequestBundle<'a> {
         }
     }
 
-    pub fn get_results(&self) -> Vec<SearchResult> {
-        self.params
-            .iter()
-            .map(|params| {
-                // Make request
-                let request = base_query(self.api_key)
-                    .with_param("s", self.title.as_ref());
-                let request = match &params.media_type {
-                    Some(mt) => {
-                        request.with_param("type", mt.to_string())
-                    }
-                    None => request,
-                };
-                let request = match params.year {
-                    Some(year) => request.with_param("y", year.to_string()),
-                    None => request,
-                };
-                (params, request)
-            })
-            .filter_map(|(params, request)| match send_omdb_search(request) {
-                // Enumerate results at this point to get their ranking from
-                // their own search. See next comment for why this is done
-                Ok(results) => Some(results.entries.into_iter().enumerate()),
-                Err(why) => {
-                    eprintln!("Problem with request ({params}): {why}");
-                    None
+    pub fn get_results(&self) -> Result<Vec<SearchResult>, RequestError> {
+        let mut result_sets = Vec::with_capacity(self.params.len());
+
+        for params in self.params.iter() {
+            // Build request
+            let request =
+                base_query(self.api_key).with_param("s", self.title.as_ref());
+            let request = match &params.media_type {
+                Some(mt) => request.with_param("type", mt.to_string()),
+                None => request,
+            };
+            let request = match params.year {
+                Some(year) => request.with_param("y", year.to_string()),
+                None => request,
+            };
+            // Send request
+            match send_omdb_search(request) {
+                Ok(results) => result_sets.push(results.entries),
+                Err(fatal) if fatal.is_fatal() => return Err(fatal),
+                Err(warn) => {
+                    eprintln!("Problem with request ({params}): {warn}");
+                    continue;
                 }
-            })
+            }
+        }
+        // Merge results
+        let results = result_sets
+            .into_iter()
+            .map(|set| set.into_iter().enumerate())
             // Merge results for different searches based on their rankings
             // from their own search. The end result should be all the first
             // results, then all the second results, etc.
@@ -406,7 +409,8 @@ impl<'a> RequestBundle<'a> {
             // I've noticed some duplicates coming through even from the API
             // directly, so might as well use itertools now I have it
             .unique_by(|sr| sr.imdb_id.clone())
-            .collect()
+            .collect::<Vec<SearchResult>>();
+        Ok(results)
     }
 }
 
