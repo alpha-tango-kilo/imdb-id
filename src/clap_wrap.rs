@@ -1,5 +1,5 @@
 use crate::{user_input, ArgsError, Filters, OutputFormatParseError};
-use clap::{App, AppSettings, Arg, ArgMatches};
+use clap::{Arg, ArgMatches, Command};
 use OutputFormat::*;
 
 use itertools::Itertools;
@@ -25,13 +25,13 @@ impl RuntimeConfig {
     }
 
     // public for testing purposes in filters.rs
-    pub(crate) fn create_clap_app() -> clap::App<'static> {
+    pub(crate) fn create_clap_app() -> clap::Command<'static> {
         // Note: any validation will be done in RuntimeConfig::process_matches
-        App::new(env!("CARGO_PKG_NAME"))
+        Command::new(env!("CARGO_PKG_NAME"))
             .version(env!("CARGO_PKG_VERSION"))
             .author("alpha-tango-kilo <git@heyatk.com>")
             .about(env!("CARGO_PKG_DESCRIPTION"))
-            .setting(AppSettings::TrailingVarArg)
+            .trailing_var_arg(true)
             .arg(
                 Arg::new("non-interactive")
                     .short('n')
@@ -220,13 +220,13 @@ mod unit_tests {
         let err = clap
             .try_get_matches_from(vec![env!("CARGO_PKG_NAME"), "-h"])
             .unwrap_err();
-        assert_eq!(err.kind, clap::ErrorKind::DisplayHelp);
+        assert_eq!(err.kind(), clap::ErrorKind::DisplayHelp);
 
         let clap = RuntimeConfig::create_clap_app();
         let err = clap
             .try_get_matches_from(vec![env!("CARGO_PKG_NAME"), "--help"])
             .unwrap_err();
-        assert_eq!(err.kind, clap::ErrorKind::DisplayHelp);
+        assert_eq!(err.kind(), clap::ErrorKind::DisplayHelp);
     }
 
     #[test]
@@ -235,13 +235,13 @@ mod unit_tests {
         let err = clap
             .try_get_matches_from(vec![env!("CARGO_PKG_NAME"), "-V"])
             .unwrap_err();
-        assert_eq!(err.kind, clap::ErrorKind::DisplayVersion);
+        assert_eq!(err.kind(), clap::ErrorKind::DisplayVersion);
 
         let clap = RuntimeConfig::create_clap_app();
         let err = clap
             .try_get_matches_from(vec![env!("CARGO_PKG_NAME"), "--version"])
             .unwrap_err();
-        assert_eq!(err.kind, clap::ErrorKind::DisplayVersion);
+        assert_eq!(err.kind(), clap::ErrorKind::DisplayVersion);
     }
 
     #[test]
@@ -328,7 +328,7 @@ mod unit_tests {
                 "foo",
             ])
             .unwrap_err();
-        assert_eq!(err.kind, clap::ErrorKind::ArgumentConflict);
+        assert_eq!(err.kind(), clap::ErrorKind::ArgumentConflict);
     }
 
     #[test]
@@ -340,7 +340,7 @@ mod unit_tests {
                 "--non-interactive",
             ])
             .unwrap_err();
-        assert_eq!(err.kind, clap::ErrorKind::MissingRequiredArgument)
+        assert_eq!(err.kind(), clap::ErrorKind::MissingRequiredArgument)
     }
 
     #[test]
