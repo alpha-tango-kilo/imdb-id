@@ -519,7 +519,84 @@ mod unit_tests {
         assert!(api_key_format_acceptable("3a3d4e1f"));
     }
 
-    // TODO: "N/A" tests
+    #[test]
+    fn optional() {
+        #[derive(Debug, Deserialize)]
+        struct Maybe {
+            #[serde(deserialize_with = "de_option_parseable")]
+            just_maybe: Option<i32>,
+        }
+
+        let inputs = vec![
+            r#"{"just_maybe": "-12"}"#,
+            r#"{"just_maybe": "N/A"}"#,
+            r#"{"just_maybe": "123"}"#,
+        ];
+        let outputs = vec![Some(-12), None, Some(123)];
+        inputs
+            .into_iter()
+            .zip(outputs)
+            .for_each(|(input, expected)| {
+                let maybe = serde_json::from_str::<Maybe>(input).unwrap();
+                assert_eq!(maybe.just_maybe, expected);
+            });
+    }
+
+    #[test]
+    #[allow(dead_code)]
+    fn not_so_optional() {
+        #[derive(Debug, Deserialize)]
+        struct Definitely {
+            #[serde(deserialize_with = "de_parseable")]
+            surely: i32,
+        }
+        serde_json::from_str::<Definitely>(r#"{"surely": "N/A"}"#).unwrap_err();
+    }
+
+    #[test]
+    fn optional_comma_list() {
+        #[derive(Debug, Deserialize)]
+        struct MaybeCommaList {
+            #[serde(deserialize_with = "de_option_comma_list")]
+            just_maybe: Option<Vec<String>>,
+        }
+
+        let inputs = vec![
+            r#"{"just_maybe": "N/A"}"#,
+            r#"{"just_maybe": "foo, bar, baz"}"#,
+            r#"{"just_maybe": "foo"}"#,
+            r#"{"just_maybe": "foo, N/A"}"#,
+        ];
+        let outputs = vec![
+            None,
+            Some(vec![
+                String::from("foo"),
+                String::from("bar"),
+                String::from("baz"),
+            ]),
+            Some(vec![String::from("foo")]),
+            Some(vec![String::from("foo"), String::from("N/A")]),
+        ];
+        inputs
+            .into_iter()
+            .zip(outputs)
+            .for_each(|(input, expected)| {
+                let mcl =
+                    serde_json::from_str::<MaybeCommaList>(input).unwrap();
+                assert_eq!(mcl.just_maybe, expected);
+            });
+    }
+
+    #[test]
+    #[allow(dead_code)]
+    fn not_so_optional_comma_list() {
+        #[derive(Debug, Deserialize)]
+        struct DefinitelyCommaList {
+            #[serde(deserialize_with = "de_comma_list")]
+            surely: Vec<String>,
+        }
+        serde_json::from_str::<DefinitelyCommaList>("N/A").unwrap_err();
+    }
 
     const INPUTS: [&str; 4] = [
         // Up
