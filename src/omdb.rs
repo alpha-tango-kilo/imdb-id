@@ -245,7 +245,7 @@ impl fmt::Display for MediaType {
     }
 }
 
-// Serialize with MediaType.as_str
+// Serialize using str representation
 impl Serialize for MediaType {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -267,8 +267,6 @@ impl<'de> Deserialize<'de> for MediaType {
     }
 }
 
-// Taking ownership of MediaType should always be cheap as it should never be
-// the Other(String) variant
 #[derive(Default, Debug)]
 struct FilterParameters {
     media_type: Option<MediaType>,
