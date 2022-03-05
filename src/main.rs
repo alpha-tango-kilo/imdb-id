@@ -9,7 +9,7 @@ pub use clap_wrap::*;
 pub use errors::*;
 pub use filters::*;
 pub use persistent::*;
-pub use user_input::cli::{choose_result_from, get_api_key};
+pub use user_input::cli::get_api_key;
 
 use crate::omdb::SearchResult;
 use omdb::RequestBundle;

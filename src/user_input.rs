@@ -8,11 +8,10 @@ pub mod cli {
     use crate::omdb::test_api_key;
     use crate::SignUpError;
     use dialoguer::theme::ColorfulTheme;
-    use dialoguer::{Confirm, Input, Select};
+    use dialoguer::{Confirm, Input};
     use lazy_regex::{lazy_regex, Lazy, Regex};
     use lazy_static::lazy_static;
     use minreq::get;
-    use std::fmt::Display;
     use std::ops::Deref;
 
     const SIGN_UP_URL: &str = "https://www.omdbapi.com/apikey.aspx";
@@ -107,16 +106,6 @@ pub mod cli {
             .interact_text()
             .map_err(InteractivityError::from_cli)?;
         Ok(question)
-    }
-
-    pub fn choose_result_from<E: Display>(entries: &[E]) -> Result<&E> {
-        Select::with_theme(THEME.deref())
-            .with_prompt("Pick the correct search result (Esc or Q to quit)")
-            .items(entries)
-            .interact_opt()
-            .map_err(InteractivityError::from_cli)?
-            .map(|index| &entries[index])
-            .ok_or(InteractivityError::Cancel)
     }
 }
 
