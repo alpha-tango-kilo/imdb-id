@@ -2,7 +2,7 @@
 name = "imdb-id"
 description = "Get IMDb IDs using a commandline search tool"
 categories = ["command-line-utilities"]
-version = "2.1.2"
+version = "3.0.0"
 edition = "2021"
 rust-version = "1.58"
 authors = ["alpha-tango-kilo <git@heyatk.com>"]
@@ -47,7 +47,7 @@ version = "1.0"
 features = ["derive"]
 
 [dependencies.textwrap]
-version = "0.14"
+version = "0.15"
 default-features = false
 features = ["smawk"]
 

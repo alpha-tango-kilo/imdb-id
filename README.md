@@ -113,14 +113,17 @@ Version 1:
 7. Different output format support: JSON, YAML, etc. - done as of v1.0.4!
 8. ~~Use async/tokio properly~~ - dismissed as unnecessary when the program only makes a single web request. See note in lib.rs for more
 
----
-
 Version 2:
 
 9. OMDb API migration - done as of v2.0.0!
 10. Apply filtering at a request level (will result in more results being shown) - done as of v2.0.5!
-11. Bring back pagination
-12. OMDb automated sign-up - done as of v2.1.0!
-13. Show extra information about media when selecting them
+11. OMDb automated sign-up - done as of v2.1.0!
+12. Show extra information about media when selecting them - done as of v3.0.0!
+
+---
+
+Version 3:
+
+13. Bring back pagination
 14. ???
 15. Profit!
