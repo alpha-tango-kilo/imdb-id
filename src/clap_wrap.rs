@@ -103,21 +103,6 @@ impl RuntimeConfig {
     }
 
     fn process_matches(clap_matches: &ArgMatches) -> Result<Self, ArgsError> {
-        let search_term = match clap_matches.values_of("search_term") {
-            Some(mut vs) => {
-                let mut s = vs.join(" ");
-                s.trim_in_place();
-                s
-            }
-            None => {
-                if cfg!(not(test)) {
-                    user_input::cli::get_search_term()?
-                } else {
-                    String::new()
-                }
-            }
-        };
-
         let format = match clap_matches.value_of("format") {
             Some(s) => OutputFormat::from_str(s)?,
             None => RuntimeConfig::default().format,
@@ -142,11 +127,31 @@ impl RuntimeConfig {
 
         let api_key = clap_matches.value_of("api_key").map(|s| s.to_owned());
 
+        let filters = Filters::new(clap_matches)?;
+
+        let search_term = match clap_matches.values_of("search_term") {
+            Some(mut vs) => {
+                let mut s = vs.join(" ");
+                s.trim_in_place();
+                s
+            }
+            None => {
+                if cfg!(not(test)) {
+                    user_input::cli::get_search_term(
+                        filters.movie,
+                        filters.series,
+                    )?
+                } else {
+                    String::new()
+                }
+            }
+        };
+
         Ok(RuntimeConfig {
             search_term,
             interactive,
             number_of_results,
-            filters: Filters::new(clap_matches)?,
+            filters,
             format,
             api_key,
         })

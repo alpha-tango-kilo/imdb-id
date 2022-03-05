@@ -98,11 +98,19 @@ pub mod cli {
         }
     }
 
-    pub fn get_search_term() -> Result<String> {
+    pub fn get_search_term(movie: bool, series: bool) -> Result<String> {
+        let media = match (movie, series) {
+            (true, true) => "movie/show",
+            (true, false) => "movie",
+            (false, true) => "show",
+            _ => unreachable!(
+                "Should always be searching for either a movie or show"
+            ),
+        };
         let question = Input::with_theme(THEME.deref())
-            .with_prompt(
-                "Please enter the name of the movie/show you're looking for",
-            )
+            .with_prompt(format!(
+                "Please enter the name of the {media} you're looking for"
+            ))
             .interact_text()
             .map_err(InteractivityError::from_cli)?;
         Ok(question)
