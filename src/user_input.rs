@@ -364,7 +364,7 @@ mod tui {
             Span::styled("Title: ", *BOLD),
             Span::raw(title),
             Span::styled(
-                format!(" ({})", year),
+                format!(" ({year})"),
                 Style::default().add_modifier(Modifier::DIM),
             ),
         ]));

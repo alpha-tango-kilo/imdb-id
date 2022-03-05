@@ -187,7 +187,7 @@ impl<'de> Deserialize<'de> for Year {
     {
         let s = String::deserialize(d)?;
         Year::from_str(&s).map_err(|e| {
-            D::Error::custom(format!("could not parse field as year ({:?})", e))
+            D::Error::custom(format!("could not parse field as year: {e:?}"))
         })
     }
 }
@@ -460,7 +460,7 @@ mod filters_unit_tests {
                 .iter()
                 .map(|sr| {
                     let ans = filters.allows(sr);
-                    println!("Do {:?} allow {}? {}", filters, sr, ans);
+                    println!("Do {filters:?} allow {sr}? {ans}");
                     ans
                 })
                 .collect()
