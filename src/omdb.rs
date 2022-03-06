@@ -89,23 +89,26 @@ pub struct Entry {
     pub title: String,
     pub year: Year,
     #[serde(deserialize_with = "de_option_parseable")]
-    pub runtime: Option<String>, // can be N/A (on series?)
-    #[serde(rename(deserialize = "Genre"), deserialize_with = "de_comma_list")]
-    pub genres: Vec<String>,
+    pub runtime: Option<String>,
+    #[serde(
+        rename(deserialize = "Genre"),
+        deserialize_with = "de_option_comma_list"
+    )]
+    pub genres: Option<Vec<String>>,
     #[serde(
         rename(deserialize = "Director"),
         deserialize_with = "de_option_comma_list"
     )]
-    pub directors: Option<Vec<String>>, // can be N/A
+    pub directors: Option<Vec<String>>,
     #[serde(
         rename(deserialize = "Writer"),
         deserialize_with = "de_option_comma_list"
     )]
-    pub writers: Option<Vec<String>>, // can be N/A
+    pub writers: Option<Vec<String>>,
     #[serde(deserialize_with = "de_comma_list")]
     pub actors: Vec<String>,
     #[serde(deserialize_with = "de_option_parseable")]
-    pub plot: Option<String>, // can be N/A
+    pub plot: Option<String>,
     #[serde(deserialize_with = "de_comma_list")]
     pub language: Vec<String>,
     #[serde(deserialize_with = "de_comma_list")]
@@ -631,7 +634,10 @@ mod unit_tests {
             .map(|entry| &entry.genres)
             .zip(genres.iter())
             .for_each(|(actual, expected)| {
-                assert_eq!(actual.as_slice(), expected.as_slice())
+                assert_eq!(
+                    actual.as_ref().unwrap().as_slice(),
+                    expected.as_slice()
+                );
             });
 
         let directors = [

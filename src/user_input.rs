@@ -405,10 +405,12 @@ mod tui {
             ]));
         }
         // Line 4: genres
-        information.push(Spans::from(vec![
-            Span::styled("Genre(s): ", *BOLD),
-            Span::raw(format_list(&genres)),
-        ]));
+        if let Some(genres) = genres {
+            information.push(Spans::from(vec![
+                Span::styled("Genre(s): ", *BOLD),
+                Span::raw(format_list(&genres)),
+            ]));
+        }
         // Line 5: actors
         information.push(Spans::from(vec![
             Span::styled("Actor(s): ", *BOLD),
