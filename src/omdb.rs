@@ -88,11 +88,6 @@ impl fmt::Display for SearchResult {
 pub struct Entry {
     pub title: String,
     pub year: Year,
-    #[serde(
-        rename(deserialize = "Rated"),
-        deserialize_with = "de_option_parseable"
-    )]
-    pub rating: Option<String>, // can be N/A (on series?)
     #[serde(deserialize_with = "de_option_parseable")]
     pub runtime: Option<String>, // can be N/A (on series?)
     #[serde(rename(deserialize = "Genre"), deserialize_with = "de_comma_list")]
@@ -117,6 +112,11 @@ pub struct Entry {
     pub country: Vec<String>,
     #[serde(rename(deserialize = "Type"))]
     pub media_type: MediaType,
+    #[serde(
+        rename(deserialize = "imdbRating"),
+        deserialize_with = "de_option_parseable"
+    )]
+    pub rating: Option<f32>,
     // #[serde(default)] as movies don't have this
     #[serde(
         rename(deserialize = "totalSeasons"),

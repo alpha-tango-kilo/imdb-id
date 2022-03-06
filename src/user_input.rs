@@ -351,6 +351,7 @@ mod tui {
         let Entry {
             title,
             year,
+            rating,
             runtime,
             genres,
             actors,
@@ -396,17 +397,24 @@ mod tui {
             }
             (None, None) => {}
         }
-        // Line 3: genres
+        // Line 3: rating
+        if let Some(rating) = rating {
+            information.push(Spans::from(vec![
+                Span::styled("IMDb Rating: ", *BOLD),
+                Span::raw(rating.to_string()),
+            ]));
+        }
+        // Line 4: genres
         information.push(Spans::from(vec![
             Span::styled("Genre(s): ", *BOLD),
             Span::raw(format_list(&genres)),
         ]));
-        // Line 4: actors
+        // Line 5: actors
         information.push(Spans::from(vec![
             Span::styled("Actor(s): ", *BOLD),
             Span::raw(format_list(&actors)),
         ]));
-        // Line 5: plot
+        // Line 6: plot
         if let Some(plot) = plot {
             information.push(Spans::from(vec![
                 Span::styled("Plot: ", *BOLD),
