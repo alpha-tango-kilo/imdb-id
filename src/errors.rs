@@ -69,6 +69,8 @@ pub enum FinalError {
     #[error(transparent)]
     Interaction(#[from] InteractivityError),
     #[error(transparent)]
+    ApiKey(#[from] ApiKeyError), // should only ever be fatal
+    #[error(transparent)]
     Request(#[from] RequestError), // should only ever be fatal
     #[error("no search results :(")]
     NoSearchResults,
@@ -87,7 +89,7 @@ impl FinalError {
         match self {
             NoSearchResults => 0,
             Args(_) => 1,
-            Request(_) | FormatOutput(_) => 2,
+            ApiKey(_) | Request(_) | FormatOutput(_) => 2,
             // 0 if non-fatal, 2 if fatal
             Interaction(inner) => (inner.is_fatal() as i32) * 2,
         }
@@ -245,14 +247,24 @@ impl MaybeFatal for SignUpError {
 
 #[derive(Debug, Error)]
 pub enum ApiKeyError {
-    #[error("Invalid API key format")]
+    #[error("invalid API key format")]
     InvalidFormat,
-    #[error("Issue with web request: {0}")]
+    #[error("issue with web request: {0}")]
     RequestFailed(#[from] minreq::Error),
-    #[error("Unauthorised API key")]
+    #[error("unauthorised API key")]
     Unauthorised,
-    #[error("Unexpected response: status {0}")]
+    #[error("unexpected response to API key, status {0}")]
     UnexpectedStatus(i32),
+}
+
+impl MaybeFatal for ApiKeyError {
+    fn is_fatal(&self) -> bool {
+        use ApiKeyError::*;
+        match self {
+            InvalidFormat | Unauthorised => false,
+            RequestFailed(_) | UnexpectedStatus(_) => true,
+        }
+    }
 }
 
 // Always printed "WARNING: {DiskError}", as these are never fatal errors

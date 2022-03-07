@@ -1,5 +1,4 @@
-use crate::omdb::test_api_key;
-use crate::{get_api_key, ApiKeyError, DiskError, InteractivityError};
+use crate::DiskError;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
@@ -21,18 +20,15 @@ lazy_static! {
     static ref CONFIG_PATH_COW: Cow<'static, str> = CONFIG_PATH.to_string_lossy();
 }
 
+type Result<T, E = DiskError> = std::result::Result<T, E>;
+
 #[derive(Debug, Serialize, Deserialize)]
-pub struct OnDiskConfig {
-    pub api_key: String,
+pub struct OnDiskConfig<'a> {
+    pub api_key: Cow<'a, str>,
 }
 
-impl OnDiskConfig {
-    pub fn new_from_prompt() -> Result<Self, InteractivityError> {
-        let api_key = get_api_key()?;
-        Ok(OnDiskConfig { api_key })
-    }
-
-    pub fn save(&self) -> Result<(), DiskError> {
+impl<'a> OnDiskConfig<'a> {
+    pub fn save(&self) -> Result<()> {
         let mut file = OpenOptions::new()
             .write(true)
             .create(true)
@@ -45,7 +41,7 @@ impl OnDiskConfig {
         file.write_all(ser.as_bytes()).map_err(DiskError::Write)
     }
 
-    pub fn load() -> Result<Self, DiskError> {
+    pub fn load() -> Result<Self> {
         let file =
             File::open(CONFIG_PATH.as_path()).map_err(|err| {
                 match err.kind() {
@@ -60,17 +56,5 @@ impl OnDiskConfig {
                 DiskError::Deserialise(err, CONFIG_PATH_COW.deref())
             })?;
         Ok(config)
-    }
-
-    pub fn check(&self) -> Result<(), ApiKeyError> {
-        test_api_key(&self.api_key)
-    }
-
-    pub fn validate(&mut self) -> Result<(), InteractivityError> {
-        if let Err(why) = self.check() {
-            eprintln!("{why}");
-            self.api_key = get_api_key()?;
-        }
-        Ok(())
     }
 }
