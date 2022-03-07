@@ -44,8 +44,10 @@ fn app() -> Result<(), FinalError> {
                 config
             }
             Err(e) => {
-                // DiskError on read is never fatal, so unwrap is fine
-                e.emit_unconditional();
+                // Suppress not found warnings
+                if !matches!(e, DiskError::NotFound(_)) {
+                    e.emit_unconditional();
+                }
                 OnDiskConfig::new_from_prompt()?
             }
         },
