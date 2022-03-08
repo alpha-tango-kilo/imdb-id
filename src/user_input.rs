@@ -6,7 +6,7 @@ type Result<T, E = InteractivityError> = std::result::Result<T, E>;
 pub mod cli {
     use super::{InteractivityError, Result};
     use crate::omdb::test_api_key;
-    use crate::SignUpError;
+    use crate::{FinalError, MaybeFatal, SignUpError};
     use dialoguer::theme::ColorfulTheme;
     use dialoguer::{Confirm, Input};
     use lazy_regex::{lazy_regex, Lazy, Regex};
@@ -28,7 +28,9 @@ pub mod cli {
         static ref THEME: ColorfulTheme = Default::default();
     }
 
-    pub fn get_api_key() -> Result<String> {
+    // Only errors returned are fatal, hence FinalError
+    // Will only ever be FinalError::Interactivity or FinalError::ApiKey
+    pub fn get_api_key() -> Result<String, FinalError> {
         let has_key = Confirm::with_theme(THEME.deref())
             .with_prompt("Do you have an OMDb API key?")
             .default(false)
@@ -44,13 +46,21 @@ pub mod cli {
             }
         }
 
-        let api_key = Input::with_theme(THEME.deref())
-            .with_prompt("Please enter your API key")
-            .validate_with(|api_key: &String| test_api_key(api_key))
-            .interact_text()
-            .map_err(InteractivityError::from_cli)?;
-
-        Ok(api_key)
+        // Don't validate using dialoguer's built-in capabilities, as some
+        // errors may be fatal
+        loop {
+            let api_key = Input::<String>::with_theme(THEME.deref())
+                .with_prompt("Please enter your API key")
+                .interact_text()
+                .map_err(InteractivityError::from_cli)?;
+            match test_api_key(&api_key) {
+                Ok(()) => return Ok(api_key),
+                Err(fatal) if fatal.is_fatal() => return Err(fatal.into()),
+                Err(warn) => {
+                    eprintln!("Bad API key: {warn}");
+                }
+            }
+        }
     }
 
     fn omdb_sign_up() -> Result<(), SignUpError> {
