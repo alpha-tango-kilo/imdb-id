@@ -402,7 +402,6 @@ impl<'a> RequestBundle<'a> {
                 Err(warn) => {
                     eprintln!("Problem with request ({params}): {warn}");
                     reading_time += 200;
-                    continue;
                 }
             }
         }
