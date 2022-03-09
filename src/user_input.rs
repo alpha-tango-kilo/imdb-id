@@ -38,10 +38,18 @@ pub mod cli {
             .map_err(InteractivityError::from_cli)?;
 
         if !has_key {
-            if let Err(why) = omdb_sign_up() {
-                match opener::open_browser(SIGN_UP_URL) {
-                    Ok(()) => eprintln!("Automated sign up failed (sorry!), website opened ({why})"),
-                    Err(_) => eprintln!("Automated sign up failed (sorry!), please visit {SIGN_UP_URL} ({why})"),
+            use InteractivityError::Cancel;
+            match omdb_sign_up() {
+                Ok(()) => {}
+                // Quit out if we notice the user is trying to cancel
+                Err(SignUpError::Interactivity(Cancel)) => {
+                    return Err(FinalError::Interaction(Cancel));
+                }
+                Err(why) => {
+                    match opener::open_browser(SIGN_UP_URL) {
+                        Ok(()) => eprintln!("Automated sign up failed (sorry!), website opened ({why})"),
+                        Err(_) => eprintln!("Automated sign up failed (sorry!), please visit {SIGN_UP_URL} ({why})"),
+                    }
                 }
             }
         }

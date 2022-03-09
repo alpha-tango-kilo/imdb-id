@@ -90,7 +90,7 @@ impl FinalError {
             NoSearchResults => 0,
             Args(_) => 1,
             ApiKey(_) | Request(_) | FormatOutput(_) => 2,
-            // 0 if non-fatal, 2 if fatal
+            // 0 if non-fatal (cancel), 2 if fatal
             Interaction(inner) => (inner.is_fatal() as i32) * 2,
         }
     }
@@ -193,7 +193,7 @@ pub enum InteractivityError {
 
 impl MaybeFatal for InteractivityError {
     fn is_fatal(&self) -> bool {
-        matches!(self, InteractivityError::Dialoguer(_))
+        !matches!(self, InteractivityError::Cancel)
     }
 }
 
