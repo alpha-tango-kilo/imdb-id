@@ -313,7 +313,7 @@ mod tui {
                     let selection_list = List::new(items)
                         .block(
                             Block::default()
-                                .title("Search results")
+                                .title("[Search results]")
                                 .borders(Borders::ALL),
                         )
                         .highlight_symbol(HIGHLIGHT_SYMBOL);
@@ -377,7 +377,7 @@ mod tui {
             seasons,
             ..
         } = entry;
-        let mut information = Vec::with_capacity(5);
+        let mut information = Vec::with_capacity(6);
         // Line 1: title & year
         information.push(Spans::from(vec![
             Span::styled("Title: ", *BOLD),
@@ -443,7 +443,11 @@ mod tui {
         }
 
         Paragraph::new(information)
-            .block(Block::default().title("Information").borders(Borders::ALL))
+            .block(
+                Block::default()
+                    .title("[Information]")
+                    .borders(Borders::ALL),
+            )
             .wrap(Wrap { trim: false })
     }
 
@@ -458,7 +462,7 @@ mod tui {
         }
 
         Paragraph::new(text)
-            .block(Block::default().title("Uh oh").borders(Borders::ALL))
+            .block(Block::default().title("[Uh oh]").borders(Borders::ALL))
             .wrap(Wrap { trim: false })
     }
 
