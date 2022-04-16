@@ -544,13 +544,18 @@ where
             // We re-attempt parsing to get a more useful error out of serde
             // If there's something bad in the SearchResults/Entry (usual
             // cause), then getting the issue with that is more useful than
-            // "did not match untagged enum" or whatever
+            // "did not match untagged enum" or whatever. Plus we can pretty
+            // print this JSON!
             // Yes this is probably expensive, hopefully I won't be doing it
             // often. This is the error path after all
-            let useful_err = serde_json::from_str::<T>(body).expect_err(
+            let body = match jsonxf::pretty_print(body) {
+                Ok(pretty) => pretty,
+                Err(_) => body.to_owned(),
+            };
+            let useful_err = serde_json::from_str::<T>(&body).expect_err(
                 "Deserializing succeeded only when not wrapped in OmdbResult",
             );
-            RequestError::Deserialisation(useful_err, body.to_owned())
+            RequestError::Deserialisation(useful_err, body)
         })?
         .into()
 }
