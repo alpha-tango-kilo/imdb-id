@@ -436,10 +436,12 @@ pub mod tui {
             ]));
         }
         // Line 5: actors
-        information.push(Spans::from(vec![
-            Span::styled("Actor(s): ", *BOLD),
-            Span::raw(format_list(&actors)),
-        ]));
+        if let Some(actors) = actors {
+            information.push(Spans::from(vec![
+                Span::styled("Actor(s): ", *BOLD),
+                Span::raw(format_list(&actors)),
+            ]));
+        }
         // Line 6: plot
         if let Some(plot) = plot {
             information.push(Spans::from(vec![

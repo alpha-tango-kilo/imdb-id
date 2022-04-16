@@ -107,12 +107,12 @@ pub struct Entry {
         deserialize_with = "de_option_comma_list"
     )]
     pub writers: Option<Vec<String>>,
-    #[serde(deserialize_with = "de_comma_list")]
-    pub actors: Vec<String>,
+    #[serde(deserialize_with = "de_option_comma_list")]
+    pub actors: Option<Vec<String>>,
     #[serde(deserialize_with = "de_option_parseable")]
     pub plot: Option<String>,
-    #[serde(deserialize_with = "de_comma_list")]
-    pub language: Vec<String>,
+    #[serde(deserialize_with = "de_option_comma_list")]
+    pub language: Option<Vec<String>>,
     #[serde(deserialize_with = "de_comma_list")]
     pub country: Vec<String>,
     #[serde(rename(deserialize = "Type"))]
@@ -745,6 +745,7 @@ mod unit_tests {
             .map(|entry| &entry.actors)
             .zip(actors.iter())
             .for_each(|(actual, expected)| {
+                let actual = actual.clone().unwrap();
                 assert_eq!(actual.as_slice(), expected.as_slice())
             });
     }
