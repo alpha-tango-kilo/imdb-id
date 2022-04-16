@@ -102,14 +102,17 @@ fn app() -> Result<(), FinalError> {
                 println!("{}", search_result.imdb_id);
             } else {
                 // Guaranteed to be interactive
+                use crate::user_input::tui::TuiOutcome::*;
                 let end_index =
                     min(search_results.len(), runtime_config.number_of_results);
-                let selected =
-                    user_input::tui(&api_key, &search_results[..end_index])?
-                        .ok_or(FinalError::Interaction(
-                            InteractivityError::Cancel,
-                        ))?;
-                println!("{}", selected.imdb_id);
+                match user_input::tui(&api_key, &search_results[..end_index])? {
+                    Picked(sr) => println!("{}", sr.imdb_id),
+                    PickedError(sr, err) => {
+                        eprintln!("{err}\n");
+                        println!("{}", sr.imdb_id);
+                    }
+                    Quit => {}
+                }
             }
         }
         Json => {

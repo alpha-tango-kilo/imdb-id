@@ -211,7 +211,7 @@ impl InteractivityError {
 pub enum RequestError {
     #[error("issue with request: {0}")]
     Web(#[from] minreq::Error),
-    #[error("unrecognised response from OMDb, please raise an issue including the following text:\nSerde error: {0}\nJSON: \n```\n{1}\n```")]
+    #[error("Failed to parse response from OMDb, please raise an issue including the following text:\nSerde error: {0}\nJSON: \n```json\n{1}\n```")]
     Deserialisation(serde_json::Error, String),
     #[error("OMDb gave us an error: {0}")]
     Omdb(String),
@@ -219,8 +219,8 @@ pub enum RequestError {
 
 impl MaybeFatal for RequestError {
     fn is_fatal(&self) -> bool {
-        use RequestError::Omdb;
-        !matches!(self, Omdb(_))
+        use RequestError::*;
+        !matches!(self, Deserialisation(_, _))
     }
 }
 

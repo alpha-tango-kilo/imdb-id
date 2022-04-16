@@ -127,7 +127,7 @@ pub mod cli {
     }
 }
 
-mod tui {
+pub mod tui {
     use super::InteractivityError;
     use crate::omdb::{get_entry, Entry};
     use crate::{RequestError, SearchResult};
@@ -261,11 +261,18 @@ mod tui {
         }
     }
 
+    pub enum TuiOutcome<'a> {
+        Picked(&'a SearchResult),
+        PickedError(&'a SearchResult, RequestError),
+        Quit,
+    }
+
     pub fn tui<'a>(
         api_key: &str,
         entries: &'a [SearchResult],
-    ) -> Result<Option<&'a SearchResult>, InteractivityError> {
+    ) -> Result<TuiOutcome<'a>, InteractivityError> {
         let mut status_list = StatefulList::new(entries);
+        let mut current_entry_error = None;
 
         let mut stdout = io::stdout();
 
@@ -320,7 +327,11 @@ mod tui {
                         Ok(entry) => f.render_widget(entry, chunks[1]),
                         Err(why) => {
                             // Fall back on rendering the error as a Paragraph
-                            f.render_widget(error_to_paragraph(&why), chunks[1])
+                            f.render_widget(
+                                error_to_paragraph(&why),
+                                chunks[1],
+                            );
+                            current_entry_error = Some(why);
                         }
                     }
                 })
@@ -334,7 +345,7 @@ mod tui {
                     KeyCode::Esc | KeyCode::Char('q') => {
                         unwind(terminal.backend_mut())
                             .map_err(InteractivityError::Crossterm)?;
-                        return Ok(None);
+                        return Ok(TuiOutcome::Quit);
                     }
                     KeyCode::Enter => break,
                     KeyCode::Up | KeyCode::Char('k') => status_list.previous(),
@@ -348,7 +359,10 @@ mod tui {
         unwind(terminal.backend_mut())
             .map_err(InteractivityError::Crossterm)?;
         let chosen = &entries[status_list.current()];
-        Ok(Some(chosen))
+        match current_entry_error {
+            None => Ok(TuiOutcome::Picked(chosen)),
+            Some(err) => Ok(TuiOutcome::PickedError(chosen, err)),
+        }
     }
 
     // Crossterm unwind
@@ -444,8 +458,10 @@ mod tui {
     }
 
     fn error_to_paragraph(error: &RequestError) -> Paragraph<'static> {
-        let mut text =
-            vec![Spans::from(Span::styled("Failed to load entry", *BOLD))];
+        let mut text = vec![
+            Spans::from(Span::styled("Failed to load entry", *BOLD)),
+            Spans::from(Span::styled("This error will be printed for easier copying if you choose it", *BOLD)),
+        ];
 
         // Interpret newlines by putting each line in its own Spans
         // Makes RequestError::Deserialisation present far more nicely
