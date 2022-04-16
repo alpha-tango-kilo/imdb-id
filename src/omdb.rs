@@ -1,6 +1,7 @@
 use crate::{
     ApiKeyError, Filters, MaybeFatal, MediaTypeParseError, RequestError, Year,
 };
+use bitflags::bitflags;
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use minreq::Request;
@@ -11,7 +12,7 @@ use std::borrow::Cow;
 use std::fmt::{self, Debug};
 use std::str::FromStr;
 use std::time::Duration;
-use std::{env, iter, thread};
+use std::{env, thread};
 
 const DEFAULT_MAX_REQUESTS_PER_SEARCH: usize = 10;
 
@@ -83,6 +84,7 @@ impl fmt::Display for SearchResult {
     }
 }
 
+// TODO: amend options to account for games
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all(deserialize = "PascalCase"))]
 pub struct Entry {
@@ -212,31 +214,53 @@ where
 // These are the OMDb API supported media typers to filter by (episode has been
 // intentionally excluded as it always returns 0 results)
 // Serialize and Deserialize and implemented by hand
-#[derive(Debug, Copy, Clone)]
-#[cfg_attr(test, derive(Eq, PartialEq))]
-pub enum MediaType {
-    Movie,
-    Series,
-}
-
-impl AsRef<str> for MediaType {
-    fn as_ref(&self) -> &str {
-        use MediaType::*;
-        match self {
-            Movie => "movie",
-            Series => "series",
-        }
+bitflags! {
+    #[derive(Default)]
+    pub struct MediaType: u8 {
+        const MOVIE = 0b0001;
+        const SERIES = 0b0010;
+        const GAME = 0b0100;
+        const ALL = Self::MOVIE.bits | Self::SERIES.bits | Self::GAME.bits;
     }
 }
 
+impl MediaType {
+    pub const fn count(&self) -> usize {
+        let movie = self.contains(MediaType::MOVIE) as usize;
+        let series = self.contains(MediaType::SERIES) as usize;
+        let game = self.contains(MediaType::GAME) as usize;
+        movie + series + game
+    }
+
+    fn str_iter(&self) -> impl Iterator<Item = &'static str> {
+        let movie = if self.contains(MediaType::MOVIE) {
+            Some("movie")
+        } else {
+            None
+        };
+        let series = if self.contains(MediaType::SERIES) {
+            Some("series")
+        } else {
+            None
+        };
+        let game = if self.contains(MediaType::GAME) {
+            Some("game")
+        } else {
+            None
+        };
+        [movie, series, game].into_iter().flatten()
+    }
+}
+
+// Note: multiple types at once are not supported
 impl FromStr for MediaType {
     type Err = MediaTypeParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        use MediaType::*;
         match s.to_ascii_lowercase().as_str() {
-            "movie" => Ok(Movie),
-            "series" => Ok(Series),
+            "movie" | "movies" => Ok(MediaType::MOVIE),
+            "series" => Ok(MediaType::SERIES),
+            "game" => Ok(MediaType::GAME),
             _ => Err(MediaTypeParseError(s.to_owned())),
         }
     }
@@ -244,17 +268,43 @@ impl FromStr for MediaType {
 
 impl fmt::Display for MediaType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.as_ref())
+        match *self {
+            MediaType::MOVIE => write!(f, "movie"),
+            MediaType::SERIES => write!(f, "series"),
+            MediaType::GAME => write!(f, "game"),
+            _ if self.bits > 0 => {
+                let mut buf = String::with_capacity(5);
+                if self.contains(MediaType::MOVIE) {
+                    buf.push_str("movie")
+                }
+                if self.contains(MediaType::SERIES) {
+                    if !buf.is_empty() {
+                        buf.push('/');
+                    }
+                    buf.push_str("series");
+                }
+                if self.contains(MediaType::GAME) {
+                    if !buf.is_empty() {
+                        buf.push('/');
+                    }
+                    buf.push_str("game");
+                }
+                write!(f, "{buf}")
+            }
+            _ => unreachable!("MediaType with no flags set"),
+        }
     }
 }
 
-// Serialize using str representation
+// Serialize using string representation
+// Only used for machine-readable outputs (--format)
 impl Serialize for MediaType {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        serializer.serialize_str(self.as_ref())
+        let string = self.to_string();
+        serializer.serialize_str(&string)
     }
 }
 
@@ -270,17 +320,17 @@ impl<'de> Deserialize<'de> for MediaType {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Debug, Default)]
 struct FilterParameters {
-    media_type: Option<MediaType>,
+    media_type: Option<Cow<'static, str>>,
     year: Option<u16>,
 }
 
-impl From<MediaType> for FilterParameters {
-    fn from(media_type: MediaType) -> Self {
+impl From<&'static str> for FilterParameters {
+    fn from(media_type: &'static str) -> Self {
         FilterParameters {
-            media_type: Some(media_type),
-            year: None,
+            media_type: Some(Cow::Borrowed(media_type)),
+            ..Default::default()
         }
     }
 }
@@ -288,16 +338,16 @@ impl From<MediaType> for FilterParameters {
 impl From<u16> for FilterParameters {
     fn from(year: u16) -> Self {
         FilterParameters {
-            media_type: None,
             year: Some(year),
+            ..Default::default()
         }
     }
 }
 
-impl From<(u16, MediaType)> for FilterParameters {
-    fn from((year, media_type): (u16, MediaType)) -> Self {
+impl From<(u16, String)> for FilterParameters {
+    fn from((year, media_type): (u16, String)) -> Self {
         FilterParameters {
-            media_type: Some(media_type),
+            media_type: Some(Cow::Owned(media_type)),
             year: Some(year),
         }
     }
@@ -306,12 +356,12 @@ impl From<(u16, MediaType)> for FilterParameters {
 impl fmt::Display for FilterParameters {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match (&self.media_type, self.year) {
+            (Some(media_type), None) => write!(f, "{media_type}"),
+            (None, Some(year)) => write!(f, "year {year}"),
             (Some(media_type), Some(year)) => {
                 write!(f, "{media_type}, year {year}")
             }
-            (Some(media_type), None) => write!(f, "{media_type}"),
-            (None, Some(year)) => write!(f, "year {year}"),
-            (None, None) => write!(f, "no filters"),
+            (_, None) => write!(f, "no filters"),
         }
     }
 }
@@ -337,13 +387,12 @@ impl<'a> RequestBundle<'a> {
             );
         }
 
-        let params = match (filters.media_type_option(), filters.years.as_ref())
-        {
-            (None, None) => {
+        let params = match (filters.types, filters.years.as_ref()) {
+            (MediaType::ALL, None) => {
                 // No filters at all
                 smallvec![FilterParameters::default()]
             }
-            (None, Some(years)) => {
+            (MediaType::ALL, Some(years)) => {
                 // Just years specified
                 years
                     .0
@@ -352,16 +401,24 @@ impl<'a> RequestBundle<'a> {
                     .map(FilterParameters::from)
                     .collect::<SmallVec<_>>()
             }
-            (Some(mt), None) => {
+            (types, None) => {
                 // Just media type specified
-                smallvec![FilterParameters::from(mt)]
+                types
+                    .str_iter()
+                    .map(FilterParameters::from)
+                    .collect::<SmallVec<_>>()
             }
-            (Some(mt), Some(years)) => {
+            (types, Some(years)) => {
                 // Both years and media type specified
+                // Massage types so it satisfies itertools' requirements
+                let types = types
+                    .str_iter()
+                    .map(ToOwned::to_owned)
+                    .collect::<SmallVec<[String; 3]>>();
                 years
                     .0
                     .clone()
-                    .zip(iter::repeat(mt))
+                    .cartesian_product(types)
                     .take(*MAX_REQUESTS_PER_SEARCH)
                     .map(FilterParameters::from)
                     .collect::<SmallVec<_>>()

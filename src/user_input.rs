@@ -5,7 +5,7 @@ type Result<T, E = InteractivityError> = std::result::Result<T, E>;
 
 pub mod cli {
     use super::{InteractivityError, Result};
-    use crate::omdb::test_api_key;
+    use crate::omdb::{test_api_key, MediaType};
     use crate::{FinalError, MaybeFatal, SignUpError};
     use dialoguer::theme::ColorfulTheme;
     use dialoguer::{Confirm, Input};
@@ -116,18 +116,10 @@ pub mod cli {
         }
     }
 
-    pub fn get_search_term(movie: bool, series: bool) -> Result<String> {
-        let media = match (movie, series) {
-            (true, true) => "movie/show",
-            (true, false) => "movie",
-            (false, true) => "show",
-            _ => unreachable!(
-                "Should always be searching for either a movie or show"
-            ),
-        };
+    pub fn get_search_term(types: MediaType) -> Result<String> {
         let question = Input::with_theme(THEME.deref())
             .with_prompt(format!(
-                "Please enter the name of the {media} you're looking for"
+                "Please enter the name of the {types} you're looking for"
             ))
             .interact_text()
             .map_err(InteractivityError::from_cli)?;

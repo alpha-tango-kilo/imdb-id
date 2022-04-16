@@ -62,7 +62,7 @@ OPTIONS:
             The maximum number of results to show from IMDb
 
     -t, --type <filter_type>
-            Filters results to a specific media type (movie or series)
+            Filters results to a specific media type (movie or series). Can be given multiple times
 
     -V, --version
             Print version information

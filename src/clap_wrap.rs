@@ -52,7 +52,9 @@ impl RuntimeConfig {
                     .short('t')
                     .long("type")
                     .help("Filters results to a specific media type (movie or series)")
-                    .takes_value(true),
+                    .long_help("Filters results to a specific media type (movie or series). Can be given multiple times")
+                    .takes_value(true)
+                    .multiple_occurrences(true),
             )
             .arg(
                 Arg::new("filter_year")
@@ -137,10 +139,7 @@ impl RuntimeConfig {
             }
             None => {
                 if cfg!(not(test)) {
-                    user_input::cli::get_search_term(
-                        filters.movie,
-                        filters.series,
-                    )?
+                    user_input::cli::get_search_term(filters.types)?
                 } else {
                     String::new()
                 }

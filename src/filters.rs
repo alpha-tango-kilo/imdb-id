@@ -1,6 +1,5 @@
-use crate::omdb::MediaType::*;
 use crate::omdb::{MediaType, SearchResult};
-use crate::{ArgsError, MediaTypeParseError, YearParseError};
+use crate::{ArgsError, YearParseError};
 use clap::ArgMatches;
 use lazy_static::lazy_static;
 use serde::de::Error;
@@ -23,29 +22,21 @@ lazy_static! {
 #[derive(Debug)]
 #[cfg_attr(test, derive(Eq, PartialEq))]
 pub struct Filters {
-    pub movie: bool,
-    pub series: bool,
+    pub types: MediaType,
     pub years: Option<Year>,
 }
 
 impl Filters {
     pub fn new(clap_matches: &ArgMatches) -> Result<Self, ArgsError> {
-        let (movie, series) = match clap_matches.value_of("filter_type") {
-            Some(v) => {
-                let mut movie = false;
-                let mut series = false;
-                if v.eq_ignore_ascii_case("movie")
-                    || v.eq_ignore_ascii_case("movies")
-                {
-                    movie = true;
-                } else if v.eq_ignore_ascii_case("series") {
-                    series = true;
-                } else {
-                    return Err(MediaTypeParseError(v.to_owned()).into());
+        let types = match clap_matches.values_of("filter_type") {
+            Some(vals) => {
+                let mut mt = MediaType::empty();
+                for s in vals {
+                    mt |= MediaType::from_str(s)?;
                 }
-                (movie, series)
+                mt
             }
-            None => (true, true),
+            None => MediaType::ALL,
         };
 
         // Match used so ? can be used
@@ -54,11 +45,7 @@ impl Filters {
             None => None,
         };
 
-        Ok(Filters {
-            movie,
-            series,
-            years,
-        })
+        Ok(Filters { types, years })
     }
 
     pub fn allows(&self, search_result: &SearchResult) -> bool {
@@ -67,36 +54,25 @@ impl Filters {
             .as_ref()
             .map(|year| year.contains(&search_result.year))
             .unwrap_or(true);
-        let media_type_matches = match search_result.media_type {
-            Movie => self.movie,
-            Series => self.series,
-        };
+        let media_type_matches = self.types.contains(search_result.media_type);
         year_matches && media_type_matches
     }
 
     pub fn combinations(&self) -> usize {
-        // self.media_type isn't accounted for because it's always 1 (either no
-        // parameters required or only 1 parameter set)
-        self.years.as_ref().map(|year| year.0.len()).unwrap_or(1)
-    }
-
-    pub fn media_type_option(&self) -> Option<MediaType> {
-        match (self.movie, self.series) {
-            (true, true) => None,
-            (true, false) => Some(Movie),
-            (false, true) => Some(Series),
-            _ => unreachable!(
-                "Within Filters movie and series should never both be false"
-            ),
-        }
+        let types = if self.types.is_all() {
+            1
+        } else {
+            self.types.count()
+        };
+        let years = self.years.as_ref().map(|year| year.0.len()).unwrap_or(1);
+        types * years
     }
 }
 
 impl Default for Filters {
     fn default() -> Self {
         Filters {
-            movie: true,
-            series: true,
+            types: MediaType::ALL,
             years: None,
         }
     }
@@ -213,6 +189,7 @@ impl fmt::Display for Year {
 
 #[cfg(test)]
 mod filters_unit_tests {
+    use crate::omdb::MediaType;
     use crate::{Filters, Year};
 
     #[test]
@@ -224,13 +201,11 @@ mod filters_unit_tests {
                 ..Default::default()
             },
             Filters {
-                movie: false,
-                series: true,
+                types: MediaType::SERIES,
                 years: Some(Year(1985..=2000)),
             },
             Filters {
-                movie: true,
-                series: false,
+                types: MediaType::MOVIE,
                 years: Some(Year(1980..=2000)),
             },
         ];
@@ -251,6 +226,7 @@ mod filters_unit_tests {
 
     mod creation {
         use crate::filters::CURRENT_YEAR;
+        use crate::omdb::MediaType;
         use crate::{Filters, RuntimeConfig, Year};
 
         #[test]
@@ -267,8 +243,7 @@ mod filters_unit_tests {
             assert_eq!(
                 filters,
                 Filters {
-                    movie: false,
-                    series: true,
+                    types: MediaType::SERIES,
                     years: None,
                 }
             );
@@ -285,7 +260,7 @@ mod filters_unit_tests {
             assert_eq!(
                 filters,
                 Filters {
-                    series: false,
+                    types: MediaType::MOVIE,
                     ..Default::default()
                 }
             );
@@ -398,8 +373,7 @@ mod filters_unit_tests {
             assert_eq!(
                 filters,
                 Filters {
-                    movie: true,
-                    series: false,
+                    types: MediaType::MOVIE,
                     years: Some(Year(1980..=2010)),
                 }
             );
@@ -407,7 +381,7 @@ mod filters_unit_tests {
     }
 
     mod filtering {
-        use crate::omdb::{MediaType::*, SearchResult};
+        use crate::omdb::{MediaType, SearchResult};
         use crate::{Filters, Year};
         use once_cell::sync::Lazy;
 
@@ -419,37 +393,37 @@ mod filters_unit_tests {
                     SearchResult {
                         title: "Kingsman: The Golden Circle".into(),
                         imdb_id: "tt4649466".into(),
-                        media_type: Movie,
+                        media_type: MediaType::MOVIE,
                         year: Year(2017..=2017),
                     },
                     SearchResult {
                         title: "King's Man".into(),
                         imdb_id: "tt1582211".into(),
-                        media_type: Movie,
+                        media_type: MediaType::MOVIE,
                         year: Year(2010..=2010),
                     },
                     SearchResult {
                         title: "All the King's Men".into(),
                         imdb_id: "tt0405676".into(),
-                        media_type: Movie,
+                        media_type: MediaType::MOVIE,
                         year: Year(2006..=2006),
                     },
                     SearchResult {
                         title: "All the King's Men".into(),
                         imdb_id: "tt0041113".into(),
-                        media_type: Movie,
+                        media_type: MediaType::MOVIE,
                         year: Year(1949..=1949),
                     },
                     SearchResult {
                         title: "Black Mirror".into(),
                         imdb_id: "tt2085059".into(),
-                        media_type: Series,
+                        media_type: MediaType::SERIES,
                         year: Year(2016..=2021),
                     },
                     SearchResult {
                         title: "Seinfeld".into(),
                         imdb_id: "tt0098904".into(),
-                        media_type: Series,
+                        media_type: MediaType::SERIES,
                         year: Year(1989..=1998),
                     },
                 ]
@@ -475,16 +449,14 @@ mod filters_unit_tests {
         #[test]
         fn media_type_single() {
             let test = Filters {
-                movie: true,
-                series: false,
+                types: MediaType::MOVIE,
                 years: None,
             };
             let results = [true, true, true, true, false, false];
             assert_eq!(&get_outcomes(&test), &results);
 
             let test = Filters {
-                movie: false,
-                series: true,
+                types: MediaType::SERIES,
                 years: None,
             };
             let results = [false, false, false, false, true, true];
@@ -511,16 +483,14 @@ mod filters_unit_tests {
         #[test]
         fn mixed() {
             let test = Filters {
-                movie: true,
-                series: false,
+                types: MediaType::MOVIE,
                 years: Some(Year(1950..=2010)),
             };
             let results = [false, true, true, false, false, false];
             assert_eq!(&get_outcomes(&test), &results);
 
             let test = Filters {
-                movie: false,
-                series: true,
+                types: MediaType::SERIES,
                 years: Some(Year(2010..=2021)),
             };
             let results = [false, false, false, false, true, false];
