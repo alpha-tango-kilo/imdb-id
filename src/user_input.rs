@@ -482,11 +482,46 @@ pub mod tui {
             1 => strings[0].to_string(),
             2 => format!("{} and {}", strings[0], strings[1]),
             _ => {
-                let mut buf = strings[..strings.len() - 1].iter().join(", ");
+                let last_index = strings.len() - 1;
+                let mut buf = strings[..last_index].iter().join(", ");
                 // Oxford comma hell yeah
                 buf.push_str(", and ");
-                buf.push_str(&strings[0].to_string());
+                buf.push_str(&strings[last_index].to_string());
                 buf
+            }
+        }
+    }
+
+    #[cfg(test)]
+    mod unit_tests {
+        use super::format_list;
+
+        #[test]
+        fn correct_lists() {
+            // 0 elements
+            let empty: [&str; 0] = [];
+            assert_eq!(format_list(&empty), String::new());
+
+            // 1 element
+            let e = "e";
+            assert_eq!(format_list(&[e]), String::from(e));
+
+            // 2 elements
+            let two = ["one", "two"];
+            let output = format_list(&two);
+            assert!(
+                !output.contains(','),
+                "two item list shouldn't contain commas",
+            );
+            for item in two {
+                assert!(output.contains(item), "missing {item} in list");
+            }
+
+            // 3 elements
+            let three = ["one", "two", "three"];
+            let output = format_list(&three);
+            for item in three {
+                assert!(output.contains(item), "missing {item} in list");
             }
         }
     }
