@@ -113,8 +113,8 @@ pub struct Entry {
     pub plot: Option<String>,
     #[serde(deserialize_with = "de_option_comma_list")]
     pub language: Option<Vec<String>>,
-    #[serde(deserialize_with = "de_comma_list")]
-    pub country: Vec<String>,
+    #[serde(deserialize_with = "de_option_comma_list")]
+    pub country: Option<Vec<String>>,
     #[serde(rename(deserialize = "Type"))]
     pub media_type: MediaType,
     #[serde(
