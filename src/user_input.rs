@@ -324,7 +324,10 @@ pub mod tui {
                     );
 
                     match status_list.entry(api_key) {
-                        Ok(entry) => f.render_widget(entry, chunks[1]),
+                        Ok(entry) => {
+                            f.render_widget(entry, chunks[1]);
+                            current_entry_error = None;
+                        }
                         Err(why) => {
                             // Fall back on rendering the error as a Paragraph
                             f.render_widget(
