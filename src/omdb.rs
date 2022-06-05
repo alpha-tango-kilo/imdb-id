@@ -135,6 +135,7 @@ pub struct Entry {
 Lists in OMDb are given like "Pete Docter, Bob Peterson, Tom McCarthy"
 This helper could throw that into a Vec<String>
  */
+#[allow(dead_code)]
 fn de_comma_list<'de, D, T>(d: D) -> Result<Vec<T>, D::Error>
 where
     D: Deserializer<'de>,
