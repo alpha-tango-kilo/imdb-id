@@ -3,8 +3,8 @@ use crate::{
 };
 use bitflags::bitflags;
 use itertools::Itertools;
-use lazy_static::lazy_static;
 use minreq::Request;
+use once_cell::sync::Lazy;
 use serde::de::{DeserializeOwned, Error};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use smallvec::{smallvec, SmallVec};
@@ -16,14 +16,11 @@ use std::{env, thread};
 
 const DEFAULT_MAX_REQUESTS_PER_SEARCH: usize = 10;
 
-lazy_static! {
-    static ref MAX_REQUESTS_PER_SEARCH: usize = {
-        match env::var("IMDB_ID_MAX_REQUESTS_PER_SEARCH") {
-            Ok(str) => str.parse().unwrap_or(DEFAULT_MAX_REQUESTS_PER_SEARCH),
-            Err(_) => DEFAULT_MAX_REQUESTS_PER_SEARCH,
-        }
-    };
-}
+static MAX_REQUESTS_PER_SEARCH: Lazy<usize> =
+    Lazy::new(|| match env::var("IMDB_ID_MAX_REQUESTS_PER_SEARCH") {
+        Ok(str) => str.parse().unwrap_or(DEFAULT_MAX_REQUESTS_PER_SEARCH),
+        Err(_) => DEFAULT_MAX_REQUESTS_PER_SEARCH,
+    });
 
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]
@@ -674,14 +671,14 @@ mod unit_tests {
         r#"{"Title":"Breakout Kings","Year":"2011–2012","Rated":"TV-14","Released":"06 Mar 2011","Runtime":"43 min","Genre":"Crime, Drama, Thriller","Director":"N/A","Writer":"Matt Olmstead, Nick Santora","Actors":"Domenick Lombardozzi, Brooke Nevin, Malcolm Goodwin","Plot":"A squad of U.S. marshals team up with cons (former fugitives) to work together on tracking down prison escapees in exchange for getting time off their sentences.","Language":"English","Country":"United States","Awards":"N/A","Poster":"https://m.media-amazon.com/images/M/MV5BMTcyNzUwNjMwM15BMl5BanBnXkFtZTcwOTgxNjk0Nw@@._V1_SX300.jpg","Ratings":[{"Source":"Internet Movie Database","Value":"7.3/10"}],"Metascore":"N/A","imdbRating":"7.3","imdbVotes":"15,196","imdbID":"tt1590961","Type":"series","totalSeasons":"2","Response":"True"}"#,
     ];
 
-    lazy_static! {
-        static ref DESERIALISED: Vec<Entry> = INPUTS
+    static DESERIALISED: Lazy<Vec<Entry>> = Lazy::new(|| {
+        INPUTS
             .iter()
             .map(|json_str| {
                 serde_json::from_str(*json_str).expect("Failed to deserialise")
             })
-            .collect();
-    }
+            .collect()
+    });
 
     #[test]
     fn converts_comma_lists() {

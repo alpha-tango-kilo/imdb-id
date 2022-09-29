@@ -1,7 +1,7 @@
 use crate::omdb::{MediaType, SearchResult};
 use crate::{ArgsError, YearParseError};
 use clap::ArgMatches;
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::cmp::min;
@@ -9,15 +9,17 @@ use std::fmt;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
 
-lazy_static! {
-    // I'm so sorry, this is my compromise for easily getting the current year
-    static ref CURRENT_YEAR: u16 = {
-        use std::time::SystemTime;
-        let timestamp = humantime::format_rfc3339(SystemTime::now())
-            .to_string();
-        timestamp.split_once('-').unwrap().0.parse().expect("Bad current year")
-    };
-}
+// I'm so sorry, this is my compromise for easily getting the current year
+static CURRENT_YEAR: Lazy<u16> = Lazy::new(|| {
+    use std::time::SystemTime;
+    let timestamp = humantime::format_rfc3339(SystemTime::now()).to_string();
+    timestamp
+        .split_once('-')
+        .unwrap()
+        .0
+        .parse()
+        .expect("Bad current year")
+});
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(Eq, PartialEq))]
@@ -503,28 +505,30 @@ mod filters_unit_tests {
 mod year_unit_tests {
     use super::Year;
     use super::CURRENT_YEAR;
-    use lazy_static::lazy_static;
+    use once_cell::sync::Lazy;
     use std::ops::RangeInclusive;
     use std::str::FromStr;
 
-    lazy_static! {
-        static ref STR_INPUTS: Vec<&'static str> = vec![
-            "1999",
-            "-1999",
-            "1999–",
-            "1920-1925",
-            "1000-800",
-            "2020–2021",
-        ];
-        static ref YEARS: Vec<RangeInclusive<u16>> = vec![
+    static STR_INPUTS: &[&str] = &[
+        "1999",
+        "-1999",
+        "1999–",
+        "1920-1925",
+        "1000-800",
+        "2020–2021",
+    ];
+
+    // Must use a Lazy to be able to deref CURRENT_YEAR
+    static YEARS: Lazy<[RangeInclusive<u16>; 6]> = Lazy::new(|| {
+        [
             1999..=1999,
             0..=1999,
             1999..=*CURRENT_YEAR,
             1920..=1925,
             800..=1000,
             2020..=2021,
-        ];
-    }
+        ]
+    });
 
     #[test]
     fn from_str() {

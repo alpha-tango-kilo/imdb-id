@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::error::Error;
 use std::fmt::Display;
 use std::io;
@@ -271,11 +272,11 @@ impl MaybeFatal for ApiKeyError {
 #[derive(Debug, Error)]
 pub enum DiskError {
     #[error("config file does not exist at {0}")] // this is never seen
-    NotFound(&'static str), // path (converted lossy)
+    NotFound(Cow<'static, str>), // path (converted lossy)
     #[error("failed to read saved config: {0}")]
     Read(io::Error),
     #[error("failed to interpret saved config at {1}: {0}")]
-    Deserialise(#[source] serde_json::Error, &'static str), // path (converted lossy)
+    Deserialise(#[source] serde_json::Error, Cow<'static, str>), // path (converted lossy)
     #[error("failed to save config: {0}")]
     Write(io::Error),
     #[error("failed to convert config to JSON for writing: {0}")]

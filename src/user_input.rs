@@ -9,9 +9,9 @@ pub mod cli {
     use crate::{FinalError, MaybeFatal, SignUpError};
     use dialoguer::theme::ColorfulTheme;
     use dialoguer::{Confirm, Input};
-    use lazy_regex::{lazy_regex, Lazy, Regex};
-    use lazy_static::lazy_static;
+    use lazy_regex::{lazy_regex, Regex};
     use minreq::get;
+    use once_cell::sync::Lazy;
     use std::ops::Deref;
 
     const SIGN_UP_URL: &str = "https://www.omdbapi.com/apikey.aspx";
@@ -24,9 +24,7 @@ pub mod cli {
         r#"(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\])"#
     );
 
-    lazy_static! {
-        static ref THEME: ColorfulTheme = Default::default();
-    }
+    static THEME: Lazy<ColorfulTheme> = Lazy::new(ColorfulTheme::default);
 
     // Only errors returned are fatal, hence FinalError
     // Will only ever be FinalError::Interactivity or FinalError::ApiKey
@@ -138,7 +136,7 @@ pub mod tui {
     };
     use crossterm::{event, execute};
     use itertools::Itertools;
-    use lazy_static::lazy_static;
+    use once_cell::sync::Lazy;
     use std::fmt::Display;
     use std::io;
     use std::io::Stdout;
@@ -154,9 +152,8 @@ pub mod tui {
     const HIGHLIGHT_SYMBOL: &str = "> ";
     const MIN_MARGIN: usize = 1;
 
-    lazy_static! {
-        static ref BOLD: Style = Style::default().add_modifier(Modifier::BOLD);
-    }
+    static BOLD: Lazy<Style> =
+        Lazy::new(|| Style::default().add_modifier(Modifier::BOLD));
 
     struct ListItemList {
         items: Vec<ListItem<'static>>,

@@ -205,7 +205,6 @@ dependencies = [
  "itertools",
  "jsonxf",
  "lazy-regex",
- "lazy_static",
  "minreq",
  "once_cell",
  "opener",

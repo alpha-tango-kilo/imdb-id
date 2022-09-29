@@ -1,24 +1,18 @@
 use crate::DiskError;
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::fs::{File, OpenOptions};
 use std::io;
 use std::io::{BufReader, Write};
-use std::ops::Deref;
 use std::path::PathBuf;
 
-lazy_static! {
-    static ref CONFIG_PATH: PathBuf = {
-        let mut config_path =
-            dirs::config_dir().expect("Platform unsupported by dirs");
-        config_path.push("imdb-id.json");
-        config_path
-    };
-
-    // Used for errors
-    static ref CONFIG_PATH_COW: Cow<'static, str> = CONFIG_PATH.to_string_lossy();
-}
+static CONFIG_PATH: Lazy<PathBuf> = Lazy::new(|| {
+    let mut config_path =
+        dirs::config_dir().expect("Platform unsupported by dirs");
+    config_path.push("imdb-id.json");
+    config_path
+});
 
 type Result<T, E = DiskError> = std::result::Result<T, E>;
 
@@ -46,14 +40,14 @@ impl<'a> OnDiskConfig<'a> {
             File::open(CONFIG_PATH.as_path()).map_err(|err| {
                 match err.kind() {
                     io::ErrorKind::NotFound => {
-                        DiskError::NotFound(CONFIG_PATH_COW.deref())
+                        DiskError::NotFound(CONFIG_PATH.to_string_lossy())
                     }
                     _ => DiskError::Write(err),
                 }
             })?;
         let config =
             serde_json::from_reader(BufReader::new(file)).map_err(|err| {
-                DiskError::Deserialise(err, CONFIG_PATH_COW.deref())
+                DiskError::Deserialise(err, CONFIG_PATH.to_string_lossy())
             })?;
         Ok(config)
     }
