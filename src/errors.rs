@@ -156,7 +156,7 @@ impl PartialEq for ArgsError {
 }
 
 #[derive(Debug, Error)]
-#[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 pub enum OutputFormatParseError {
     #[error("this format isn't supported because you didn't enable it at compile time.\nYou can 'enable' this by running `cargo install imdb-id --force --features {0}`")]
     NotInstalled(String),
@@ -165,7 +165,7 @@ pub enum OutputFormatParseError {
 }
 
 #[derive(Debug, Error)]
-#[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 pub enum YearParseError {
     #[error(transparent)]
     InvalidInt(#[from] ParseIntError),
@@ -176,7 +176,7 @@ pub enum YearParseError {
 }
 
 #[derive(Debug, Error)]
-#[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 #[error("unrecognised media type {0:?}")]
 pub struct MediaTypeParseError(pub String);
 
