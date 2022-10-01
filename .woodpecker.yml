@@ -11,8 +11,8 @@ pipeline:
   lint:
     image: rustdocker/rustfmt_clippy:nightly
     commands:
-      - rustfmt -- --check --files-with-diff
-      - cargo-clippy --no-deps
+      - cargo fmt -- --check --files-with-diff
+      - cargo clippy --no-deps
   msrv:
     image: rust:1.60
     commands:
