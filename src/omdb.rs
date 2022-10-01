@@ -213,7 +213,6 @@ where
 // intentionally excluded as it always returns 0 results)
 // Serialize and Deserialize and implemented by hand
 bitflags! {
-    #[derive(Default)]
     pub struct MediaType: u8 {
         const MOVIE = 0b0001;
         const SERIES = 0b0010;

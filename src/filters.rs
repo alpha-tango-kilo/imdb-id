@@ -1,6 +1,5 @@
 use crate::omdb::{MediaType, SearchResult};
-use crate::{ArgsError, YearParseError};
-use clap::ArgMatches;
+use crate::YearParseError;
 use once_cell::sync::Lazy;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -29,27 +28,6 @@ pub struct Filters {
 }
 
 impl Filters {
-    pub fn new(clap_matches: &ArgMatches) -> Result<Self, ArgsError> {
-        let types = match clap_matches.values_of("filter_type") {
-            Some(vals) => {
-                let mut mt = MediaType::empty();
-                for s in vals {
-                    mt |= MediaType::from_str(s)?;
-                }
-                mt
-            }
-            None => MediaType::ALL,
-        };
-
-        // Match used so ? can be used
-        let years = match clap_matches.value_of("filter_year") {
-            Some(year_str) => Some(Year::from_str(year_str)?),
-            None => None,
-        };
-
-        Ok(Filters { types, years })
-    }
-
     pub fn allows(&self, search_result: &SearchResult) -> bool {
         let year_matches = self
             .years
@@ -230,18 +208,25 @@ mod filters_unit_tests {
         use crate::filters::CURRENT_YEAR;
         use crate::omdb::MediaType;
         use crate::{Filters, RuntimeConfig, Year};
+        use clap::ArgMatches;
+
+        fn from_matches(clap_matches: &mut ArgMatches) -> Filters {
+            RuntimeConfig::process_matches(clap_matches)
+                .unwrap()
+                .filters
+        }
 
         #[test]
         fn media_type() {
             let clap = RuntimeConfig::create_clap_app();
-            let clap_matches = clap
+            let mut clap_matches = clap
                 .try_get_matches_from(vec![
                     env!("CARGO_PKG_NAME"),
                     "-t",
                     "series",
                 ])
                 .unwrap();
-            let filters = Filters::new(&clap_matches).unwrap();
+            let filters = from_matches(&mut clap_matches);
             assert_eq!(
                 filters,
                 Filters {
@@ -251,14 +236,14 @@ mod filters_unit_tests {
             );
 
             let clap = RuntimeConfig::create_clap_app();
-            let clap_matches = clap
+            let mut clap_matches = clap
                 .try_get_matches_from(vec![
                     env!("CARGO_PKG_NAME"),
                     "-t",
                     "Movie",
                 ])
                 .unwrap();
-            let filters = Filters::new(&clap_matches).unwrap();
+            let filters = from_matches(&mut clap_matches);
             assert_eq!(
                 filters,
                 Filters {
@@ -271,14 +256,14 @@ mod filters_unit_tests {
         #[test]
         fn year() {
             let clap = RuntimeConfig::create_clap_app();
-            let clap_matches = clap
+            let mut clap_matches = clap
                 .try_get_matches_from(vec![
                     env!("CARGO_PKG_NAME"),
                     "-y",
                     "1980",
                 ])
                 .unwrap();
-            let filters = Filters::new(&clap_matches).unwrap();
+            let filters = from_matches(&mut clap_matches);
             assert_eq!(
                 filters,
                 Filters {
@@ -288,14 +273,14 @@ mod filters_unit_tests {
             );
 
             let clap = RuntimeConfig::create_clap_app();
-            let clap_matches = clap
+            let mut clap_matches = clap
                 .try_get_matches_from(vec![
                     env!("CARGO_PKG_NAME"),
                     "-y",
                     "1980-2010",
                 ])
                 .unwrap();
-            let filters = Filters::new(&clap_matches).unwrap();
+            let filters = from_matches(&mut clap_matches);
             assert_eq!(
                 filters,
                 Filters {
@@ -305,14 +290,14 @@ mod filters_unit_tests {
             );
 
             let clap = RuntimeConfig::create_clap_app();
-            let clap_matches = clap
+            let mut clap_matches = clap
                 .try_get_matches_from(vec![
                     env!("CARGO_PKG_NAME"),
                     "-y",
                     "1980-",
                 ])
                 .unwrap();
-            let filters = Filters::new(&clap_matches).unwrap();
+            let filters = from_matches(&mut clap_matches);
             assert_eq!(
                 filters,
                 Filters {
@@ -322,14 +307,14 @@ mod filters_unit_tests {
             );
 
             let clap = RuntimeConfig::create_clap_app();
-            let clap_matches = clap
+            let mut clap_matches = clap
                 .try_get_matches_from(vec![
                     env!("CARGO_PKG_NAME"),
                     "-y",
                     "-2010",
                 ])
                 .unwrap();
-            let filters = Filters::new(&clap_matches).unwrap();
+            let filters = from_matches(&mut clap_matches);
             assert_eq!(
                 filters,
                 Filters {
@@ -342,14 +327,14 @@ mod filters_unit_tests {
         #[test]
         fn year_inverted() {
             let clap = RuntimeConfig::create_clap_app();
-            let clap_matches = clap
+            let mut clap_matches = clap
                 .try_get_matches_from(vec![
                     env!("CARGO_PKG_NAME"),
                     "-y",
                     "2010-1980",
                 ])
                 .unwrap();
-            let filters = Filters::new(&clap_matches).unwrap();
+            let filters = from_matches(&mut clap_matches);
             assert_eq!(
                 filters,
                 Filters {
@@ -362,7 +347,7 @@ mod filters_unit_tests {
         #[test]
         fn mixed() {
             let clap = RuntimeConfig::create_clap_app();
-            let clap_matches = clap
+            let mut clap_matches = clap
                 .try_get_matches_from(vec![
                     env!("CARGO_PKG_NAME"),
                     "-y",
@@ -371,7 +356,7 @@ mod filters_unit_tests {
                     "Movies",
                 ])
                 .unwrap();
-            let filters = Filters::new(&clap_matches).unwrap();
+            let filters = from_matches(&mut clap_matches);
             assert_eq!(
                 filters,
                 Filters {

@@ -1,9 +1,11 @@
-use crate::{user_input, ArgsError, Filters, OutputFormatParseError};
-use clap::{Arg, ArgMatches, Command};
-use OutputFormat::*;
+use crate::{user_input, ArgsError, Filters, OutputFormatParseError, Year};
+use clap::{Arg, ArgAction, ArgMatches, Command};
 
-use itertools::Itertools;
+use crate::omdb::MediaType;
+use clap::builder::NonEmptyStringValueParser;
+use std::fmt::Write;
 use std::io::{stdin, stdout};
+use std::ops::BitOr;
 use std::str::FromStr;
 use trim_in_place::TrimInPlace;
 
@@ -20,32 +22,33 @@ pub struct RuntimeConfig {
 impl RuntimeConfig {
     pub fn new() -> Result<Self, ArgsError> {
         RuntimeConfig::process_matches(
-            &RuntimeConfig::create_clap_app().get_matches(),
+            &mut RuntimeConfig::create_clap_app().get_matches(),
         )
     }
 
     // public for testing purposes in filters.rs
-    pub(crate) fn create_clap_app() -> clap::Command<'static> {
+    pub(crate) fn create_clap_app() -> Command {
         // Note: any validation will be done in RuntimeConfig::process_matches
         Command::new(env!("CARGO_PKG_NAME"))
             .version(env!("CARGO_PKG_VERSION"))
             .author("alpha-tango-kilo <git@heyatk.com>")
             .about(env!("CARGO_PKG_DESCRIPTION"))
-            .trailing_var_arg(true)
             .arg(
                 Arg::new("non-interactive")
                     .short('n')
                     .long("non-interactive")
                     .help("Disables interactive features (always picks the first result)")
-                    .requires("search_term"),
+                    .requires("search_term")
+                    .action(ArgAction::SetTrue),
             )
             .arg(
                 Arg::new("number_of_results")
                     .short('r')
                     .long("results")
                     .help("The maximum number of results to show from IMDb")
-                    .takes_value(true)
-                    .conflicts_with("non-interactive"),
+                    .num_args(1)
+                    .conflicts_with("non-interactive")
+                    .value_parser(clap::value_parser!(usize)),
             )
             .arg(
                 Arg::new("filter_type")
@@ -53,8 +56,9 @@ impl RuntimeConfig {
                     .long("type")
                     .help("Filters results to a specific media type (movie or series)")
                     .long_help("Filters results to a specific media type (movie or series). Can be given multiple times")
-                    .takes_value(true)
-                    .multiple_occurrences(true),
+                    .num_args(1)
+                    .action(ArgAction::Append)
+                    .value_parser(MediaType::from_str),
             )
             .arg(
                 Arg::new("filter_year")
@@ -68,8 +72,9 @@ impl RuntimeConfig {
                     Examples: 2021, 1990-2000, 2000- (2000 onwards), \
                     -2000 (before 2000)",
                     )
-                    .takes_value(true)
-                    .allow_hyphen_values(true),
+                    .num_args(1)
+                    .allow_hyphen_values(true)
+                    .value_parser(Year::from_str),
             )
             .arg(
                 Arg::new("format")
@@ -81,13 +86,14 @@ impl RuntimeConfig {
                     Formats are only available if you opted-IN at installation\n\
                     All the formats imdb-id can support are: json, yaml",
                     )
-                    .takes_value(true),
+                    .num_args(1)
+                    .value_parser(OutputFormat::from_str),
             )
             .arg(
                 Arg::new("search_term")
                     .help("The title of the movie/show you're looking for")
-                    .takes_value(true)
-                    .multiple_values(true),
+                    .trailing_var_arg(true)
+                    .num_args(0..),
             )
             .arg(
                 Arg::new("api_key")
@@ -95,7 +101,8 @@ impl RuntimeConfig {
                     .alias("apikey")
                     .help("Your OMDb API key")
                     .long_help("Your OMDb API key (overrides saved value if present)")
-                    .takes_value(true),
+                    .num_args(1)
+                    .value_parser(NonEmptyStringValueParser::new()),
             )
             .after_long_help("ENVIRONMENT VARIABLES:\n    \
             IMDB_ID_MAX_REQUESTS_PER_SEARCH\n            \
@@ -104,13 +111,15 @@ impl RuntimeConfig {
             ")
     }
 
-    fn process_matches(clap_matches: &ArgMatches) -> Result<Self, ArgsError> {
-        let format = match clap_matches.value_of("format") {
-            Some(s) => OutputFormat::from_str(s)?,
-            None => RuntimeConfig::default().format,
-        };
+    // filters needs access
+    pub(crate) fn process_matches(
+        clap_matches: &mut ArgMatches,
+    ) -> Result<Self, ArgsError> {
+        let format = clap_matches
+            .remove_one::<OutputFormat>("format")
+            .unwrap_or_default();
 
-        let mut interactive = !clap_matches.is_present("non-interactive");
+        let mut interactive = !clap_matches.get_flag("non-interactive");
         // TTY checks are disabled for testing
         if cfg!(not(test)) {
             use crossterm::tty::IsTty;
@@ -118,33 +127,47 @@ impl RuntimeConfig {
             interactive &= stdin().is_tty();
         }
 
-        let number_of_results = if interactive || !matches!(format, Human) {
-            match clap_matches.value_of("number_of_results") {
-                Some(n) => n.parse()?,
-                None => RuntimeConfig::default().number_of_results,
-            }
-        } else {
-            1
-        };
+        let number_of_results =
+            if interactive || !matches!(format, OutputFormat::Human) {
+                clap_matches
+                    .remove_one::<usize>("number_of_results")
+                    .unwrap_or(RuntimeConfig::default().number_of_results)
+            } else {
+                1
+            };
 
-        let api_key = clap_matches.value_of("api_key").map(|s| s.to_owned());
+        let api_key = clap_matches.remove_one::<String>("api_key");
 
-        let filters = Filters::new(clap_matches)?;
+        let types = clap_matches
+            .remove_many::<MediaType>("filter_type")
+            .map(|mts| mts.reduce(BitOr::bitor).unwrap())
+            .unwrap_or(MediaType::ALL);
 
-        let search_term = match clap_matches.values_of("search_term") {
-            Some(mut vs) => {
-                let mut s = vs.join(" ");
-                s.trim_in_place();
-                s
-            }
-            None => {
-                if cfg!(not(test)) {
-                    user_input::cli::get_search_term(filters.types)?
-                } else {
-                    String::new()
+        // Match used so ? can be used
+        let years = clap_matches.remove_one::<Year>("filter_year");
+
+        let filters = Filters { types, years };
+
+        let search_term =
+            match clap_matches.remove_many::<String>("search_term") {
+                Some(mut words) => {
+                    let mut search_term = words.next().unwrap();
+                    search_term.trim_in_place();
+                    words.for_each(|word| {
+                        write!(search_term, " {} ", word.trim()).unwrap();
+                    });
+                    // Remove trailing extra space
+                    search_term.pop();
+                    search_term
                 }
-            }
-        };
+                None => {
+                    if cfg!(not(test)) {
+                        user_input::cli::get_search_term(filters.types)?
+                    } else {
+                        String::new()
+                    }
+                }
+            };
 
         Ok(RuntimeConfig {
             search_term,
@@ -164,15 +187,16 @@ impl Default for RuntimeConfig {
             interactive: true,
             number_of_results: 10,
             filters: Filters::default(),
-            format: Human,
+            format: OutputFormat::default(),
             api_key: None,
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, Default)]
 #[cfg_attr(test, derive(Eq, PartialEq))]
 pub enum OutputFormat {
+    #[default]
     Human,
     Json,
     #[cfg(feature = "yaml")]
@@ -183,6 +207,7 @@ impl FromStr for OutputFormat {
     type Err = OutputFormatParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        use OutputFormat::*;
         use OutputFormatParseError::*;
         match s.to_ascii_lowercase().as_str() {
             "human" | "plain" => Ok(Human),
@@ -201,17 +226,7 @@ impl FromStr for OutputFormat {
 #[cfg(test)]
 mod unit_tests {
     use super::*;
-    use std::ffi::OsString;
-
-    // type constraints match `get_matches_from`
-    fn parse_args<I, T>(iter: I) -> Result<RuntimeConfig, ArgsError>
-    where
-        I: IntoIterator<Item = T>,
-        T: Into<OsString> + Clone,
-    {
-        let matches = RuntimeConfig::create_clap_app().get_matches_from(iter);
-        RuntimeConfig::process_matches(&matches)
-    }
+    use clap::error::ErrorKind;
 
     #[test]
     fn clap() {
@@ -224,13 +239,13 @@ mod unit_tests {
         let err = clap
             .try_get_matches_from(vec![env!("CARGO_PKG_NAME"), "-h"])
             .unwrap_err();
-        assert_eq!(err.kind(), clap::ErrorKind::DisplayHelp);
+        assert_eq!(err.kind(), ErrorKind::DisplayHelp);
 
         let clap = RuntimeConfig::create_clap_app();
         let err = clap
             .try_get_matches_from(vec![env!("CARGO_PKG_NAME"), "--help"])
             .unwrap_err();
-        assert_eq!(err.kind(), clap::ErrorKind::DisplayHelp);
+        assert_eq!(err.kind(), ErrorKind::DisplayHelp);
     }
 
     #[test]
@@ -239,19 +254,19 @@ mod unit_tests {
         let err = clap
             .try_get_matches_from(vec![env!("CARGO_PKG_NAME"), "-V"])
             .unwrap_err();
-        assert_eq!(err.kind(), clap::ErrorKind::DisplayVersion);
+        assert_eq!(err.kind(), ErrorKind::DisplayVersion);
 
         let clap = RuntimeConfig::create_clap_app();
         let err = clap
             .try_get_matches_from(vec![env!("CARGO_PKG_NAME"), "--version"])
             .unwrap_err();
-        assert_eq!(err.kind(), clap::ErrorKind::DisplayVersion);
+        assert_eq!(err.kind(), ErrorKind::DisplayVersion);
     }
 
     #[test]
     fn results_short() {
         let clap = RuntimeConfig::create_clap_app();
-        let m = clap
+        let mut m = clap
             .try_get_matches_from(vec![
                 env!("CARGO_PKG_NAME"),
                 "-r",
@@ -259,16 +274,16 @@ mod unit_tests {
                 "foo",
             ])
             .unwrap();
-        assert_eq!(m.value_of("number_of_results"), Some("3"));
+        assert_eq!(m.get_one::<usize>("number_of_results"), Some(&3));
 
-        let config = RuntimeConfig::process_matches(&m).unwrap();
+        let config = RuntimeConfig::process_matches(&mut m).unwrap();
         assert_eq!(config.number_of_results, 3);
     }
 
     #[test]
     fn results_long() {
         let clap = RuntimeConfig::create_clap_app();
-        let m = clap
+        let mut m = clap
             .try_get_matches_from(vec![
                 env!("CARGO_PKG_NAME"),
                 "--results",
@@ -276,29 +291,35 @@ mod unit_tests {
                 "foo",
             ])
             .unwrap();
-        assert_eq!(m.value_of("number_of_results"), Some("7"));
+        assert_eq!(m.get_one::<usize>("number_of_results"), Some(&7));
 
-        let config = RuntimeConfig::process_matches(&m).unwrap();
+        let config = RuntimeConfig::process_matches(&mut m).unwrap();
         assert_eq!(config.number_of_results, 7);
     }
 
     #[test]
     fn results_invalid() {
-        let err =
-            parse_args(vec![env!("CARGO_PKG_NAME"), "--results", "bar", "foo"])
-                .unwrap_err();
-        assert!(matches!(err, ArgsError::NumberOfResults(_)));
+        let clap = RuntimeConfig::create_clap_app();
+        let err = clap
+            .try_get_matches_from(vec![
+                env!("CARGO_PKG_NAME"),
+                "--results",
+                "bar",
+                "foo",
+            ])
+            .unwrap_err();
+        assert_eq!(err.kind(), ErrorKind::ValueValidation);
     }
 
     #[test]
     fn non_interactive_short() {
         let clap = RuntimeConfig::create_clap_app();
-        let m = clap
+        let mut m = clap
             .try_get_matches_from(vec![env!("CARGO_PKG_NAME"), "-n", "foo"])
             .unwrap();
-        assert!(m.is_present("non-interactive"));
+        assert!(m.get_flag("non-interactive"));
 
-        let config = RuntimeConfig::process_matches(&m).unwrap();
+        let config = RuntimeConfig::process_matches(&mut m).unwrap();
         assert!(!config.interactive);
         assert_eq!(config.number_of_results, 1);
     }
@@ -306,16 +327,16 @@ mod unit_tests {
     #[test]
     fn non_interactive_long() {
         let clap = RuntimeConfig::create_clap_app();
-        let m = clap
+        let mut m = clap
             .try_get_matches_from(vec![
                 env!("CARGO_PKG_NAME"),
                 "--non-interactive",
                 "foo",
             ])
             .unwrap();
-        assert!(m.is_present("non-interactive"));
+        assert!(m.get_flag("non-interactive"));
 
-        let config = RuntimeConfig::process_matches(&m).unwrap();
+        let config = RuntimeConfig::process_matches(&mut m).unwrap();
         assert!(!config.interactive);
         assert_eq!(config.number_of_results, 1);
     }
@@ -332,7 +353,7 @@ mod unit_tests {
                 "foo",
             ])
             .unwrap_err();
-        assert_eq!(err.kind(), clap::ErrorKind::ArgumentConflict);
+        assert_eq!(err.kind(), ErrorKind::ArgumentConflict);
     }
 
     #[test]
@@ -344,47 +365,53 @@ mod unit_tests {
                 "--non-interactive",
             ])
             .unwrap_err();
-        assert_eq!(err.kind(), clap::ErrorKind::MissingRequiredArgument)
+        assert_eq!(err.kind(), ErrorKind::MissingRequiredArgument)
     }
 
     #[test]
     fn multiple_word_search_term() {
         let clap = RuntimeConfig::create_clap_app();
-        let m = clap
+        let mut m = clap
             .try_get_matches_from(vec![env!("CARGO_PKG_NAME"), "foo", "bar"])
             .unwrap();
         let search_term_word_count =
-            m.values_of("search_term").unwrap().count();
+            m.get_many::<String>("search_term").unwrap().count();
         assert_eq!(search_term_word_count, 2);
 
-        let config = RuntimeConfig::process_matches(&m).unwrap();
+        let config = RuntimeConfig::process_matches(&mut m).unwrap();
         assert_eq!(&config.search_term, "foo bar");
     }
 
     #[test]
     fn format_short() {
         let clap = RuntimeConfig::create_clap_app();
-        let m = clap
+        let mut m = clap
             .try_get_matches_from(vec![env!("CARGO_PKG_NAME"), "-f", "json"])
             .unwrap();
-        assert_eq!(m.value_of("format"), Some("json"));
+        assert_eq!(
+            m.get_one::<OutputFormat>("format"),
+            Some(&OutputFormat::Json)
+        );
 
-        let config = RuntimeConfig::process_matches(&m).unwrap();
+        let config = RuntimeConfig::process_matches(&mut m).unwrap();
         assert_eq!(config.format, OutputFormat::Json);
 
         #[cfg(feature = "yaml")]
         {
             let clap = RuntimeConfig::create_clap_app();
-            let m = clap
+            let mut m = clap
                 .try_get_matches_from(vec![
                     env!("CARGO_PKG_NAME"),
                     "-f",
                     "yaml",
                 ])
                 .unwrap();
-            assert_eq!(m.value_of("format"), Some("yaml"));
+            assert_eq!(
+                m.get_one::<OutputFormat>("format"),
+                Some(&OutputFormat::Yaml)
+            );
 
-            let config = RuntimeConfig::process_matches(&m).unwrap();
+            let config = RuntimeConfig::process_matches(&mut m).unwrap();
             assert_eq!(config.format, OutputFormat::Yaml);
         }
     }
@@ -392,31 +419,37 @@ mod unit_tests {
     #[test]
     fn format_long() {
         let clap = RuntimeConfig::create_clap_app();
-        let m = clap
+        let mut m = clap
             .try_get_matches_from(vec![
                 env!("CARGO_PKG_NAME"),
                 "--format",
                 "json",
             ])
             .unwrap();
-        assert_eq!(m.value_of("format"), Some("json"));
+        assert_eq!(
+            m.get_one::<OutputFormat>("format"),
+            Some(&OutputFormat::Json)
+        );
 
-        let config = RuntimeConfig::process_matches(&m).unwrap();
+        let config = RuntimeConfig::process_matches(&mut m).unwrap();
         assert_eq!(config.format, OutputFormat::Json);
 
         #[cfg(feature = "yaml")]
         {
             let clap = RuntimeConfig::create_clap_app();
-            let m = clap
+            let mut m = clap
                 .try_get_matches_from(vec![
                     env!("CARGO_PKG_NAME"),
                     "--format",
                     "yaml",
                 ])
                 .unwrap();
-            assert_eq!(m.value_of("format"), Some("yaml"));
+            assert_eq!(
+                m.get_one::<OutputFormat>("format"),
+                Some(&OutputFormat::Yaml)
+            );
 
-            let config = RuntimeConfig::process_matches(&m).unwrap();
+            let config = RuntimeConfig::process_matches(&mut m).unwrap();
             assert_eq!(config.format, OutputFormat::Yaml);
         }
     }
@@ -424,38 +457,43 @@ mod unit_tests {
     #[cfg(not(feature = "yaml"))]
     #[test]
     fn not_installed_format() {
-        let err = parse_args(vec![env!("CARGO_PKG_NAME"), "--format", "yaml"])
+        let clap = RuntimeConfig::create_clap_app();
+        let err = clap
+            .try_get_matches_from(vec![
+                env!("CARGO_PKG_NAME"),
+                "--format",
+                "yaml",
+            ])
             .unwrap_err();
-        assert_eq!(
-            err,
-            ArgsError::OutputFormat(OutputFormatParseError::NotInstalled(
-                String::from("yaml")
-            ))
-        );
+        assert_eq!(err.kind(), ErrorKind::ValueValidation);
     }
 
     #[test]
     fn unrecognised_format() {
-        let err = parse_args(vec![env!("CARGO_PKG_NAME"), "--format", "foo"])
+        let clap = RuntimeConfig::create_clap_app();
+        let err = clap
+            .try_get_matches_from(vec![
+                env!("CARGO_PKG_NAME"),
+                "--format",
+                "foo",
+            ])
             .unwrap_err();
-        assert_eq!(
-            err,
-            ArgsError::OutputFormat(OutputFormatParseError::Unrecognised(
-                String::from("foo")
-            ))
-        );
+        assert_eq!(err.kind(), ErrorKind::ValueValidation);
     }
 
     #[test]
     fn api_key() {
         let clap = RuntimeConfig::create_clap_app();
-        let m = clap
+        let mut m = clap
             .try_get_matches_from(vec![
                 env!("CARGO_PKG_NAME"),
                 "--api-key",
                 "123483",
             ])
             .unwrap();
-        assert_eq!(m.value_of("api_key"), Some("123483"));
+        assert_eq!(
+            m.remove_one::<String>("api_key").as_deref(),
+            Some("123483")
+        );
     }
 }
