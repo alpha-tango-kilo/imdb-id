@@ -1,10 +1,10 @@
 pipeline:
   build:
-    image: rust:1.58
+    image: rust
     commands:
-      - cargo build
+      - cargo build --locked
   test:
-    image: rust:1.58
+    image: rust
     commands:
       - cargo test
       - cargo test --all-features
@@ -13,3 +13,7 @@ pipeline:
     commands:
       - cargo fmt -- --check --files-with-diff
       - cargo clippy --no-deps
+  msrv:
+    image: rust:1.60
+    commands:
+      - cargo build --locked
