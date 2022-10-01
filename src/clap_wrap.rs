@@ -26,8 +26,7 @@ impl RuntimeConfig {
         )
     }
 
-    // public for testing purposes in filters.rs
-    pub(crate) fn create_clap_app() -> Command {
+    fn create_clap_app() -> Command {
         // Note: any validation will be done in RuntimeConfig::process_matches
         Command::new(env!("CARGO_PKG_NAME"))
             .version(env!("CARGO_PKG_VERSION"))
@@ -111,8 +110,7 @@ impl RuntimeConfig {
             ")
     }
 
-    // filters needs access
-    pub(crate) fn process_matches(
+    fn process_matches(
         clap_matches: &mut ArgMatches,
     ) -> Result<Self, ArgsError> {
         let format = clap_matches
@@ -495,5 +493,168 @@ mod unit_tests {
             m.remove_one::<String>("api_key").as_deref(),
             Some("123483")
         );
+    }
+
+    mod filters {
+        use crate::filters::CURRENT_YEAR;
+        use crate::omdb::MediaType;
+        use crate::{Filters, RuntimeConfig, Year};
+        use clap::ArgMatches;
+
+        fn from_matches(clap_matches: &mut ArgMatches) -> Filters {
+            RuntimeConfig::process_matches(clap_matches)
+                .unwrap()
+                .filters
+        }
+
+        #[test]
+        fn media_type() {
+            let clap = RuntimeConfig::create_clap_app();
+            let mut clap_matches = clap
+                .try_get_matches_from(vec![
+                    env!("CARGO_PKG_NAME"),
+                    "-t",
+                    "series",
+                ])
+                .unwrap();
+            let filters = from_matches(&mut clap_matches);
+            assert_eq!(
+                filters,
+                Filters {
+                    types: MediaType::SERIES,
+                    years: None,
+                }
+            );
+
+            let clap = RuntimeConfig::create_clap_app();
+            let mut clap_matches = clap
+                .try_get_matches_from(vec![
+                    env!("CARGO_PKG_NAME"),
+                    "-t",
+                    "Movie",
+                ])
+                .unwrap();
+            let filters = from_matches(&mut clap_matches);
+            assert_eq!(
+                filters,
+                Filters {
+                    types: MediaType::MOVIE,
+                    ..Default::default()
+                }
+            );
+        }
+
+        #[test]
+        fn year() {
+            let clap = RuntimeConfig::create_clap_app();
+            let mut clap_matches = clap
+                .try_get_matches_from(vec![
+                    env!("CARGO_PKG_NAME"),
+                    "-y",
+                    "1980",
+                ])
+                .unwrap();
+            let filters = from_matches(&mut clap_matches);
+            assert_eq!(
+                filters,
+                Filters {
+                    years: Some(Year(1980..=1980)),
+                    ..Default::default()
+                }
+            );
+
+            let clap = RuntimeConfig::create_clap_app();
+            let mut clap_matches = clap
+                .try_get_matches_from(vec![
+                    env!("CARGO_PKG_NAME"),
+                    "-y",
+                    "1980-2010",
+                ])
+                .unwrap();
+            let filters = from_matches(&mut clap_matches);
+            assert_eq!(
+                filters,
+                Filters {
+                    years: Some(Year(1980..=2010)),
+                    ..Default::default()
+                }
+            );
+
+            let clap = RuntimeConfig::create_clap_app();
+            let mut clap_matches = clap
+                .try_get_matches_from(vec![
+                    env!("CARGO_PKG_NAME"),
+                    "-y",
+                    "1980-",
+                ])
+                .unwrap();
+            let filters = from_matches(&mut clap_matches);
+            assert_eq!(
+                filters,
+                Filters {
+                    years: Some(Year(1980..=*CURRENT_YEAR)),
+                    ..Default::default()
+                }
+            );
+
+            let clap = RuntimeConfig::create_clap_app();
+            let mut clap_matches = clap
+                .try_get_matches_from(vec![
+                    env!("CARGO_PKG_NAME"),
+                    "-y",
+                    "-2010",
+                ])
+                .unwrap();
+            let filters = from_matches(&mut clap_matches);
+            assert_eq!(
+                filters,
+                Filters {
+                    years: Some(Year(0..=2010)),
+                    ..Default::default()
+                }
+            );
+        }
+
+        #[test]
+        fn year_inverted() {
+            let clap = RuntimeConfig::create_clap_app();
+            let mut clap_matches = clap
+                .try_get_matches_from(vec![
+                    env!("CARGO_PKG_NAME"),
+                    "-y",
+                    "2010-1980",
+                ])
+                .unwrap();
+            let filters = from_matches(&mut clap_matches);
+            assert_eq!(
+                filters,
+                Filters {
+                    years: Some(Year(1980..=2010)),
+                    ..Default::default()
+                }
+            );
+        }
+
+        #[test]
+        fn mixed() {
+            let clap = RuntimeConfig::create_clap_app();
+            let mut clap_matches = clap
+                .try_get_matches_from(vec![
+                    env!("CARGO_PKG_NAME"),
+                    "-y",
+                    "1980-2010",
+                    "-t",
+                    "Movies",
+                ])
+                .unwrap();
+            let filters = from_matches(&mut clap_matches);
+            assert_eq!(
+                filters,
+                Filters {
+                    types: MediaType::MOVIE,
+                    years: Some(Year(1980..=2010)),
+                }
+            );
+        }
     }
 }
