@@ -220,14 +220,19 @@ impl Default for RuntimeConfig {
     }
 }
 
-#[derive(Debug, Copy, Clone, Default)]
+#[derive(Debug, Copy, Clone)]
 #[cfg_attr(test, derive(Eq, PartialEq))]
 pub enum OutputFormat {
-    #[default]
     Human,
     Json,
     #[cfg(feature = "yaml")]
     Yaml,
+}
+
+impl Default for OutputFormat {
+    fn default() -> Self {
+        OutputFormat::Human
+    }
 }
 
 impl FromStr for OutputFormat {
