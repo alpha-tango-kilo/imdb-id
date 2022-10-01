@@ -6,13 +6,13 @@ pipeline:
   test:
     image: rust
     commands:
-      - cargo test
-      - cargo test --all-features
+      - cargo test --locked
+      - cargo test --locked --all-features
   lint:
     image: rustdocker/rustfmt_clippy:nightly
     commands:
-      - cargo fmt -- --check --files-with-diff
-      - cargo clippy --no-deps
+      - rustfmt -- --check --files-with-diff
+      - cargo-clippy --no-deps
   msrv:
     image: rust:1.60
     commands:
