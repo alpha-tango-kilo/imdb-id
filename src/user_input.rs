@@ -4,15 +4,33 @@ use crate::InteractivityError;
 type Result<T, E = InteractivityError> = std::result::Result<T, E>;
 
 pub mod cli {
-    use super::{InteractivityError, Result};
-    use crate::omdb::{test_api_key, MediaType};
-    use crate::{FinalError, MaybeFatal, SignUpError};
-    use dialoguer::theme::ColorfulTheme;
-    use dialoguer::{Confirm, Input};
-    use lazy_regex::{lazy_regex, Regex};
+    use std::ops::Deref;
+
+    use dialoguer::{
+        theme::ColorfulTheme,
+        Confirm,
+        Input,
+    };
+    use lazy_regex::{
+        lazy_regex,
+        Regex,
+    };
     use minreq::get;
     use once_cell::sync::Lazy;
-    use std::ops::Deref;
+
+    use super::{
+        InteractivityError,
+        Result,
+    };
+    use crate::{
+        omdb::{
+            test_api_key,
+            MediaType,
+        },
+        FinalError,
+        MaybeFatal,
+        SignUpError,
+    };
 
     const SIGN_UP_URL: &str = "https://www.omdbapi.com/apikey.aspx";
     const AUTOMATED_SIGN_UP_URL: &str = "https://www.omdbapi.com/apikey.aspx?__EVENTTARGET=&__EVENTARGUMENT=&__LASTFOCUS=&__VIEWSTATE=%2FwEPDwUKLTIwNDY4MTIzNQ9kFgYCAQ9kFggCAQ8QDxYCHgdDaGVja2VkaGRkZGQCAw8QDxYCHwBnZGRkZAIFDxYCHgdWaXNpYmxlaGQCBw8WAh8BZ2QCAg8WAh8BaGQCAw8WAh8BaGQYAQUeX19Db250cm9sc1JlcXVpcmVQb3N0QmFja0tleV9fFgMFC3BhdHJlb25BY2N0BQtwYXRyZW9uQWNjdAUIZnJlZUFjY3SZmkfBgEVOtEhBRPgn0xJZZDjfMEiMoho3O8lIVPYLXg%3D%3D&__VIEWSTATEGENERATOR=5E550F58&__EVENTVALIDATION=%2FwEdAAhq8u7G6E8iNQTDLBqGZykXmSzhXfnlWWVdWIamVouVTzfZJuQDpLVS6HZFWq5fYphdL1XrNEjnC%2FKjNya%2Bmqh8hRPnM5dWgso2y7bj7kVNLSFbtYIt24Lw6ktxrd5Z67%2F4LFSTzFfbXTFN5VgQX9Nbzfg78Z8BXhXifTCAVkevd2U20ItIGqFIf8giu%2B0PAasvwu4KgXUo9rywyT%2ByOXGt&at=freeAcct&Button1=Submit";
@@ -38,17 +56,21 @@ pub mod cli {
         if !has_key {
             use InteractivityError::Cancel;
             match omdb_sign_up() {
-                Ok(()) => {}
+                Ok(()) => {},
                 // Quit out if we notice the user is trying to cancel
                 Err(SignUpError::Interactivity(Cancel)) => {
                     return Err(FinalError::Interaction(Cancel));
-                }
-                Err(why) => {
-                    match opener::open_browser(SIGN_UP_URL) {
-                        Ok(()) => eprintln!("Automated sign up failed (sorry!), website opened ({why})"),
-                        Err(_) => eprintln!("Automated sign up failed (sorry!), please visit {SIGN_UP_URL} ({why})"),
-                    }
-                }
+                },
+                Err(why) => match opener::open_browser(SIGN_UP_URL) {
+                    Ok(()) => eprintln!(
+                        "Automated sign up failed (sorry!), website opened \
+                         ({why})"
+                    ),
+                    Err(_) => eprintln!(
+                        "Automated sign up failed (sorry!), please visit \
+                         {SIGN_UP_URL} ({why})"
+                    ),
+                },
             }
         }
 
@@ -64,7 +86,7 @@ pub mod cli {
                 Err(fatal) if fatal.is_fatal() => return Err(fatal.into()),
                 Err(warn) => {
                     eprintln!("Bad API key: {warn}");
-                }
+                },
             }
         }
     }
@@ -96,7 +118,8 @@ pub mod cli {
         let r#use = "Searching the API with imdb-id (https://codeberg.org/alpha-tango-kilo/imdb-id)";
 
         let request = get(format!(
-            "{AUTOMATED_SIGN_UP_URL}&Email2={email}&FirstName={first_name}&LastName={last_name}&TextArea1={use}",
+            "{AUTOMATED_SIGN_UP_URL}&Email2={email}&FirstName={first_name}&\
+             LastName={last_name}&TextArea1={use}",
             email = urlencoding::encode(&email),
             first_name = urlencoding::encode(&first_name),
             last_name = urlencoding::encode(&last_name),
@@ -109,7 +132,7 @@ pub mod cli {
             true => {
                 println!("Sign up was successful, check your email");
                 Ok(())
-            }
+            },
             false => Err(SignUpError::NeedleNotFound),
         }
     }
@@ -126,28 +149,64 @@ pub mod cli {
 }
 
 pub mod tui {
-    use super::InteractivityError;
-    use crate::omdb::{get_entry, Entry};
-    use crate::{RequestError, SearchResult};
-    use crossterm::event::{Event, KeyCode};
-    use crossterm::terminal::{
-        disable_raw_mode, enable_raw_mode, EnterAlternateScreen,
-        LeaveAlternateScreen,
+    use std::{
+        fmt::Display,
+        io,
+        io::Stdout,
     };
-    use crossterm::{event, execute};
+
+    use crossterm::{
+        event,
+        event::{
+            Event,
+            KeyCode,
+        },
+        execute,
+        terminal::{
+            disable_raw_mode,
+            enable_raw_mode,
+            EnterAlternateScreen,
+            LeaveAlternateScreen,
+        },
+    };
     use itertools::Itertools;
     use once_cell::sync::Lazy;
-    use std::fmt::Display;
-    use std::io;
-    use std::io::Stdout;
-    use tui::backend::CrosstermBackend;
-    use tui::layout::{Constraint, Direction, Layout};
-    use tui::style::{Modifier, Style};
-    use tui::text::{Span, Spans};
-    use tui::widgets::{
-        Block, Borders, List, ListItem, ListState, Paragraph, Wrap,
+    use tui::{
+        backend::CrosstermBackend,
+        layout::{
+            Constraint,
+            Direction,
+            Layout,
+        },
+        style::{
+            Modifier,
+            Style,
+        },
+        text::{
+            Span,
+            Spans,
+        },
+        widgets::{
+            Block,
+            Borders,
+            List,
+            ListItem,
+            ListState,
+            Paragraph,
+            Wrap,
+        },
+        Terminal,
     };
-    use tui::Terminal;
+
+    use super::InteractivityError;
+    use crate::{
+        omdb::{
+            get_entry,
+            Entry,
+        },
+        RequestError,
+        SearchResult,
+    };
 
     const HIGHLIGHT_SYMBOL: &str = "> ";
     const MIN_MARGIN: usize = 1;
@@ -215,7 +274,7 @@ pub mod tui {
             let index = match self.state.selected() {
                 Some(index) => {
                     index.checked_sub(1).unwrap_or(self.underlying.len() - 1)
-                }
+                },
                 None => 0,
             };
             self.state.select(Some(index));
@@ -229,7 +288,7 @@ pub mod tui {
                     let items = lil.items_cloned();
                     self.list_items = Some(lil);
                     items
-                }
+                },
             }
         }
 
@@ -247,7 +306,7 @@ pub mod tui {
                     let paragraph = entry_to_paragraph(entry);
                     self.entry_paragraphs[index] = Some(paragraph.clone());
                     Ok(paragraph)
-                }
+                },
             }
         }
 
@@ -324,7 +383,7 @@ pub mod tui {
                         Ok(entry) => {
                             f.render_widget(entry, chunks[1]);
                             current_entry_error = None;
-                        }
+                        },
                         Err(why) => {
                             // Fall back on rendering the error as a Paragraph
                             f.render_widget(
@@ -332,7 +391,7 @@ pub mod tui {
                                 chunks[1],
                             );
                             current_entry_error = Some(why);
-                        }
+                        },
                     }
                 })
                 .map_err(InteractivityError::Tui)?;
@@ -346,11 +405,11 @@ pub mod tui {
                         unwind(terminal.backend_mut())
                             .map_err(InteractivityError::Crossterm)?;
                         return Ok(TuiOutcome::Quit);
-                    }
+                    },
                     KeyCode::Enter => break,
                     KeyCode::Up | KeyCode::Char('k') => status_list.previous(),
                     KeyCode::Down | KeyCode::Char('j') => status_list.next(),
-                    _ => {}
+                    _ => {},
                 }
             }
         }
@@ -404,22 +463,22 @@ pub mod tui {
                     Span::raw(runtime),
                     Span::raw(" per episode)"),
                 ]));
-            }
+            },
             (Some(seasons), None) => {
                 // e.g. Seasons: 6
                 information.push(Spans::from(vec![
                     Span::styled("Seasons: ", *BOLD),
                     Span::raw(seasons.to_string()),
                 ]));
-            }
+            },
             (None, Some(runtime)) => {
                 // e.g. Run time: 120 minutes
                 information.push(Spans::from(vec![
                     Span::styled("Run time: ", *BOLD),
                     Span::raw(runtime),
                 ]));
-            }
-            (None, None) => {}
+            },
+            (None, None) => {},
         }
         // Line 3: rating
         if let Some(rating) = rating {
@@ -462,7 +521,11 @@ pub mod tui {
     fn error_to_paragraph(error: &RequestError) -> Paragraph<'static> {
         let mut text = vec![
             Spans::from(Span::styled("Failed to load entry", *BOLD)),
-            Spans::from(Span::styled("This error will be printed for easier copying if you choose it", *BOLD)),
+            Spans::from(Span::styled(
+                "This error will be printed for easier copying if you choose \
+                 it",
+                *BOLD,
+            )),
         ];
 
         // Interpret newlines by putting each line in its own Spans
@@ -488,7 +551,7 @@ pub mod tui {
                 buf.push_str(", and ");
                 buf.push_str(&strings[last_index].to_string());
                 buf
-            }
+            },
         }
     }
 

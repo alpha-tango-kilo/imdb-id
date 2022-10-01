@@ -1,12 +1,26 @@
-use crate::omdb::{MediaType, SearchResult};
-use crate::YearParseError;
+use std::{
+    cmp::min,
+    fmt,
+    ops::RangeInclusive,
+    str::FromStr,
+};
+
 use once_cell::sync::Lazy;
-use serde::de::Error;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::cmp::min;
-use std::fmt;
-use std::ops::RangeInclusive;
-use std::str::FromStr;
+use serde::{
+    de::Error,
+    Deserialize,
+    Deserializer,
+    Serialize,
+    Serializer,
+};
+
+use crate::{
+    omdb::{
+        MediaType,
+        SearchResult,
+    },
+    YearParseError,
+};
 
 // I'm so sorry, this is my compromise for easily getting the current year
 // pub(crate) for clap_wrap tests
@@ -101,7 +115,10 @@ impl FromStr for Year {
                     let mut end = u16::from_str(end_str)?;
                     // Make sure arg isn't bigger than current year
                     if end > *CURRENT_YEAR {
-                        eprintln!("WARNING: using current year for end of date range instead");
+                        eprintln!(
+                            "WARNING: using current year for end of date \
+                             range instead"
+                        );
                         end = *CURRENT_YEAR;
                     }
                     end
@@ -113,17 +130,20 @@ impl FromStr for Year {
 
                 // Save the user from their silliness
                 if end < start {
-                    eprintln!("WARNING: looks like you put the date range in backwards, fixed that for you");
+                    eprintln!(
+                        "WARNING: looks like you put the date range in \
+                         backwards, fixed that for you"
+                    );
                     std::mem::swap(&mut start, &mut end);
                 }
 
                 Ok(Year(start..=end))
-            }
+            },
             None => {
                 // Should be just a year we can parse
                 let year = min(u16::from_str(year_str)?, *CURRENT_YEAR);
                 Ok(Year(year..=year))
-            }
+            },
         }
     }
 }
@@ -170,8 +190,11 @@ impl fmt::Display for Year {
 
 #[cfg(test)]
 mod filters_unit_tests {
-    use crate::omdb::MediaType;
-    use crate::{Filters, Year};
+    use crate::{
+        omdb::MediaType,
+        Filters,
+        Year,
+    };
 
     #[test]
     fn combinations() {
@@ -206,9 +229,16 @@ mod filters_unit_tests {
     }
 
     mod filtering {
-        use crate::omdb::{MediaType, SearchResult};
-        use crate::{Filters, Year};
         use once_cell::sync::Lazy;
+
+        use crate::{
+            omdb::{
+                MediaType,
+                SearchResult,
+            },
+            Filters,
+            Year,
+        };
 
         const TEST_DATA_SIZE: usize = 6;
 
@@ -326,11 +356,17 @@ mod filters_unit_tests {
 
 #[cfg(test)]
 mod year_unit_tests {
-    use super::Year;
-    use super::CURRENT_YEAR;
+    use std::{
+        ops::RangeInclusive,
+        str::FromStr,
+    };
+
     use once_cell::sync::Lazy;
-    use std::ops::RangeInclusive;
-    use std::str::FromStr;
+
+    use super::{
+        Year,
+        CURRENT_YEAR,
+    };
 
     static STR_INPUTS: &[&str] = &[
         "1999",

@@ -1,18 +1,42 @@
-use crate::{
-    ApiKeyError, Filters, MaybeFatal, MediaTypeParseError, RequestError, Year,
+use std::{
+    borrow::Cow,
+    env,
+    fmt::{
+        self,
+        Debug,
+    },
+    str::FromStr,
+    thread,
+    time::Duration,
 };
+
 use bitflags::bitflags;
 use itertools::Itertools;
 use minreq::Request;
 use once_cell::sync::Lazy;
-use serde::de::{DeserializeOwned, Error};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use smallvec::{smallvec, SmallVec};
-use std::borrow::Cow;
-use std::fmt::{self, Debug};
-use std::str::FromStr;
-use std::time::Duration;
-use std::{env, thread};
+use serde::{
+    de::{
+        DeserializeOwned,
+        Error,
+    },
+    Deserialize,
+    Deserializer,
+    Serialize,
+    Serializer,
+};
+use smallvec::{
+    smallvec,
+    SmallVec,
+};
+
+use crate::{
+    ApiKeyError,
+    Filters,
+    MaybeFatal,
+    MediaTypeParseError,
+    RequestError,
+    Year,
+};
 
 const DEFAULT_MAX_REQUESTS_PER_SEARCH: usize = 10;
 
@@ -287,7 +311,7 @@ impl fmt::Display for MediaType {
                     buf.push_str("game");
                 }
                 write!(f, "{buf}")
-            }
+            },
             _ => unreachable!("MediaType with no flags set"),
         }
     }
@@ -357,7 +381,7 @@ impl fmt::Display for FilterParameters {
             (None, Some(year)) => write!(f, "year {year}"),
             (Some(media_type), Some(year)) => {
                 write!(f, "{media_type}, year {year}")
-            }
+            },
             (_, None) => write!(f, "no filters"),
         }
     }
@@ -375,11 +399,11 @@ impl<'a> RequestBundle<'a> {
         let combinations = filters.combinations();
         if combinations > *MAX_REQUESTS_PER_SEARCH {
             eprintln!(
-                "WARNING: the combination of filters you've specified \
-            can't be exhaustively covered in {} requests (it would take \
-            {combinations} requests), so some results will be missed. You can \
-            set the IMDB_ID_MAX_REQUESTS_PER_SEARCH environment variable to \
-            change this number",
+                "WARNING: the combination of filters you've specified can't \
+                 be exhaustively covered in {} requests (it would take \
+                 {combinations} requests), so some results will be missed. \
+                 You can set the IMDB_ID_MAX_REQUESTS_PER_SEARCH environment \
+                 variable to change this number",
                 *MAX_REQUESTS_PER_SEARCH
             );
         }
@@ -388,7 +412,7 @@ impl<'a> RequestBundle<'a> {
             (MediaType::ALL, None) => {
                 // No filters at all
                 smallvec![FilterParameters::default()]
-            }
+            },
             (MediaType::ALL, Some(years)) => {
                 // Just years specified
                 years
@@ -397,14 +421,14 @@ impl<'a> RequestBundle<'a> {
                     .take(*MAX_REQUESTS_PER_SEARCH)
                     .map(FilterParameters::from)
                     .collect::<SmallVec<_>>()
-            }
+            },
             (types, None) => {
                 // Just media type specified
                 types
                     .str_iter()
                     .map(FilterParameters::from)
                     .collect::<SmallVec<_>>()
-            }
+            },
             (types, Some(years)) => {
                 // Both years and media type specified
                 // Massage types so it satisfies itertools' requirements
@@ -419,7 +443,7 @@ impl<'a> RequestBundle<'a> {
                     .take(*MAX_REQUESTS_PER_SEARCH)
                     .map(FilterParameters::from)
                     .collect::<SmallVec<_>>()
-            }
+            },
         };
         RequestBundle {
             api_key,
@@ -456,7 +480,7 @@ impl<'a> RequestBundle<'a> {
                 Err(warn) => {
                     eprintln!("Problem with request ({params}): {warn}");
                     reading_time += 200;
-                }
+                },
             }
         }
         // Merge results

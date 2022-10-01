@@ -1,11 +1,24 @@
-use crate::DiskError;
+use std::{
+    borrow::Cow,
+    fs::{
+        File,
+        OpenOptions,
+    },
+    io,
+    io::{
+        BufReader,
+        Write,
+    },
+    path::PathBuf,
+};
+
 use once_cell::sync::Lazy;
-use serde::{Deserialize, Serialize};
-use std::borrow::Cow;
-use std::fs::{File, OpenOptions};
-use std::io;
-use std::io::{BufReader, Write};
-use std::path::PathBuf;
+use serde::{
+    Deserialize,
+    Serialize,
+};
+
+use crate::DiskError;
 
 static CONFIG_PATH: Lazy<PathBuf> = Lazy::new(|| {
     let mut config_path =
@@ -41,7 +54,7 @@ impl<'a> OnDiskConfig<'a> {
                 match err.kind() {
                     io::ErrorKind::NotFound => {
                         DiskError::NotFound(CONFIG_PATH.to_string_lossy())
-                    }
+                    },
                     _ => DiskError::Write(err),
                 }
             })?;

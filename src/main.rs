@@ -5,16 +5,22 @@ pub mod omdb;
 mod persistent;
 mod user_input;
 
+use std::{
+    borrow::Cow,
+    cmp::min,
+    process,
+};
+
+use clap_wrap::OutputFormat::*;
 pub use clap_wrap::*;
 pub use errors::*;
 pub use filters::*;
+use omdb::{
+    test_api_key,
+    RequestBundle,
+    SearchResult,
+};
 pub use persistent::*;
-
-use clap_wrap::OutputFormat::*;
-use omdb::{test_api_key, RequestBundle, SearchResult};
-use std::borrow::Cow;
-use std::cmp::min;
-use std::process;
 use user_input::cli::get_api_key;
 
 fn main() {
@@ -36,7 +42,7 @@ fn app() -> Result<(), FinalError> {
                 e.emit_unconditional();
             }
             None
-        }
+        },
     };
 
     // Get API key into one place, regardless as to where it's provided
@@ -55,7 +61,7 @@ fn app() -> Result<(), FinalError> {
             Err(e) => {
                 e.emit_non_fatal()?;
                 get_api_key()?.into()
-            }
+            },
         },
         None => get_api_key()?.into(),
     };
@@ -68,15 +74,15 @@ fn app() -> Result<(), FinalError> {
                 api_key: Cow::Borrowed(&api_key),
             };
             new_config.save().emit_unconditional();
-        }
+        },
         None => {
             let new_config = OnDiskConfig {
                 api_key: Cow::Borrowed(&api_key),
             };
             new_config.save().emit_unconditional();
-        }
+        },
         // API key is same on disk as is being used
-        _ => {}
+        _ => {},
     }
 
     // Okay let's actually do the search
@@ -110,25 +116,25 @@ fn app() -> Result<(), FinalError> {
                     PickedError(sr, err) => {
                         eprintln!("{err}\n");
                         println!("{}", sr.imdb_id);
-                    }
-                    Quit => {}
+                    },
+                    Quit => {},
                 }
             }
-        }
+        },
         Json => {
             let end_index =
                 min(runtime_config.number_of_results, search_results.len());
             let json =
                 serde_json::to_string_pretty(&search_results[..end_index])?;
             println!("{json}");
-        }
+        },
         #[cfg(feature = "yaml")]
         Yaml => {
             let end_index =
                 min(runtime_config.number_of_results, search_results.len());
             let yaml = serde_yaml::to_string(&search_results[..end_index])?;
             println!("{yaml}");
-        }
+        },
     }
     Ok(())
 }

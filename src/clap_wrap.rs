@@ -1,13 +1,30 @@
-use crate::{user_input, ArgsError, Filters, OutputFormatParseError, Year};
-use clap::{Arg, ArgAction, ArgMatches, Command};
+use std::{
+    fmt::Write,
+    io::{
+        stdin,
+        stdout,
+    },
+    ops::BitOr,
+    str::FromStr,
+};
 
-use crate::omdb::MediaType;
-use clap::builder::NonEmptyStringValueParser;
-use std::fmt::Write;
-use std::io::{stdin, stdout};
-use std::ops::BitOr;
-use std::str::FromStr;
+use clap::{
+    builder::NonEmptyStringValueParser,
+    Arg,
+    ArgAction,
+    ArgMatches,
+    Command,
+};
 use trim_in_place::TrimInPlace;
+
+use crate::{
+    omdb::MediaType,
+    user_input,
+    ArgsError,
+    Filters,
+    OutputFormatParseError,
+    Year,
+};
 
 #[derive(Debug)]
 pub struct RuntimeConfig {
@@ -36,7 +53,10 @@ impl RuntimeConfig {
                 Arg::new("non-interactive")
                     .short('n')
                     .long("non-interactive")
-                    .help("Disables interactive features (always picks the first result)")
+                    .help(
+                        "Disables interactive features (always picks the \
+                         first result)",
+                    )
                     .requires("search_term")
                     .action(ArgAction::SetTrue),
             )
@@ -53,8 +73,14 @@ impl RuntimeConfig {
                 Arg::new("filter_type")
                     .short('t')
                     .long("type")
-                    .help("Filters results to a specific media type (movie or series)")
-                    .long_help("Filters results to a specific media type (movie or series). Can be given multiple times")
+                    .help(
+                        "Filters results to a specific media type (movie or \
+                         series)",
+                    )
+                    .long_help(
+                        "Filters results to a specific media type (movie or \
+                         series). Can be given multiple times",
+                    )
                     .num_args(1)
                     .action(ArgAction::Append)
                     .value_parser(MediaType::from_str),
@@ -65,11 +91,11 @@ impl RuntimeConfig {
                     .long("year")
                     .help("Filter results to a specific year")
                     .long_help(
-                        "Filters results to a specific year, or range of years\n\
-                    Media which has no year specified will always be included\n\
-                    Ranges are fully inclusive\n\
-                    Examples: 2021, 1990-2000, 2000- (2000 onwards), \
-                    -2000 (before 2000)",
+                        "Filters results to a specific year, or range of \
+                         years\nMedia which has no year specified will always \
+                         be included\nRanges are fully inclusive\nExamples: \
+                         2021, 1990-2000, 2000- (2000 onwards), -2000 (before \
+                         2000)",
                     )
                     .num_args(1)
                     .allow_hyphen_values(true)
@@ -81,9 +107,10 @@ impl RuntimeConfig {
                     .long("format")
                     .help("Change output format to desired standard")
                     .long_help(
-                        "Change output format to desired standard\n\
-                    Formats are only available if you opted-IN at installation\n\
-                    All the formats imdb-id can support are: json, yaml",
+                        "Change output format to desired standard\nFormats \
+                         are only available if you opted-IN at \
+                         installation\nAll the formats imdb-id can support \
+                         are: json, yaml",
                     )
                     .num_args(1)
                     .value_parser(OutputFormat::from_str),
@@ -99,15 +126,17 @@ impl RuntimeConfig {
                     .long("api-key")
                     .alias("apikey")
                     .help("Your OMDb API key")
-                    .long_help("Your OMDb API key (overrides saved value if present)")
+                    .long_help(
+                        "Your OMDb API key (overrides saved value if present)",
+                    )
                     .num_args(1)
                     .value_parser(NonEmptyStringValueParser::new()),
             )
-            .after_long_help("ENVIRONMENT VARIABLES:\n    \
-            IMDB_ID_MAX_REQUESTS_PER_SEARCH\n            \
-            Adjusts the limit on the number \
-            of requests per search. Default is 10\
-            ")
+            .after_long_help(
+                "ENVIRONMENT VARIABLES:\n    \
+                 IMDB_ID_MAX_REQUESTS_PER_SEARCH\n            Adjusts the \
+                 limit on the number of requests per search. Default is 10",
+            )
     }
 
     fn process_matches(
@@ -157,14 +186,14 @@ impl RuntimeConfig {
                     // Remove trailing extra space
                     search_term.pop();
                     search_term
-                }
+                },
                 None => {
                     if cfg!(not(test)) {
                         user_input::cli::get_search_term(filters.types)?
                     } else {
                         String::new()
                     }
-                }
+                },
             };
 
         Ok(RuntimeConfig {
@@ -215,7 +244,7 @@ impl FromStr for OutputFormat {
             #[cfg(not(feature = "yaml"))]
             not_installed @ "yaml" => {
                 Err(NotInstalled(not_installed.to_owned()))
-            }
+            },
             other => Err(Unrecognised(other.to_owned())),
         }
     }
@@ -223,8 +252,9 @@ impl FromStr for OutputFormat {
 
 #[cfg(test)]
 mod unit_tests {
-    use super::*;
     use clap::error::ErrorKind;
+
+    use super::*;
 
     #[test]
     fn clap() {
@@ -496,10 +526,15 @@ mod unit_tests {
     }
 
     mod filters {
-        use crate::filters::CURRENT_YEAR;
-        use crate::omdb::MediaType;
-        use crate::{Filters, RuntimeConfig, Year};
         use clap::ArgMatches;
+
+        use crate::{
+            filters::CURRENT_YEAR,
+            omdb::MediaType,
+            Filters,
+            RuntimeConfig,
+            Year,
+        };
 
         fn from_matches(clap_matches: &mut ArgMatches) -> Filters {
             RuntimeConfig::process_matches(clap_matches)
@@ -518,13 +553,10 @@ mod unit_tests {
                 ])
                 .unwrap();
             let filters = from_matches(&mut clap_matches);
-            assert_eq!(
-                filters,
-                Filters {
-                    types: MediaType::SERIES,
-                    years: None,
-                }
-            );
+            assert_eq!(filters, Filters {
+                types: MediaType::SERIES,
+                years: None,
+            });
 
             let clap = RuntimeConfig::create_clap_app();
             let mut clap_matches = clap
@@ -535,13 +567,10 @@ mod unit_tests {
                 ])
                 .unwrap();
             let filters = from_matches(&mut clap_matches);
-            assert_eq!(
-                filters,
-                Filters {
-                    types: MediaType::MOVIE,
-                    ..Default::default()
-                }
-            );
+            assert_eq!(filters, Filters {
+                types: MediaType::MOVIE,
+                ..Default::default()
+            });
         }
 
         #[test]
@@ -555,13 +584,10 @@ mod unit_tests {
                 ])
                 .unwrap();
             let filters = from_matches(&mut clap_matches);
-            assert_eq!(
-                filters,
-                Filters {
-                    years: Some(Year(1980..=1980)),
-                    ..Default::default()
-                }
-            );
+            assert_eq!(filters, Filters {
+                years: Some(Year(1980..=1980)),
+                ..Default::default()
+            });
 
             let clap = RuntimeConfig::create_clap_app();
             let mut clap_matches = clap
@@ -572,13 +598,10 @@ mod unit_tests {
                 ])
                 .unwrap();
             let filters = from_matches(&mut clap_matches);
-            assert_eq!(
-                filters,
-                Filters {
-                    years: Some(Year(1980..=2010)),
-                    ..Default::default()
-                }
-            );
+            assert_eq!(filters, Filters {
+                years: Some(Year(1980..=2010)),
+                ..Default::default()
+            });
 
             let clap = RuntimeConfig::create_clap_app();
             let mut clap_matches = clap
@@ -589,13 +612,10 @@ mod unit_tests {
                 ])
                 .unwrap();
             let filters = from_matches(&mut clap_matches);
-            assert_eq!(
-                filters,
-                Filters {
-                    years: Some(Year(1980..=*CURRENT_YEAR)),
-                    ..Default::default()
-                }
-            );
+            assert_eq!(filters, Filters {
+                years: Some(Year(1980..=*CURRENT_YEAR)),
+                ..Default::default()
+            });
 
             let clap = RuntimeConfig::create_clap_app();
             let mut clap_matches = clap
@@ -606,13 +626,10 @@ mod unit_tests {
                 ])
                 .unwrap();
             let filters = from_matches(&mut clap_matches);
-            assert_eq!(
-                filters,
-                Filters {
-                    years: Some(Year(0..=2010)),
-                    ..Default::default()
-                }
-            );
+            assert_eq!(filters, Filters {
+                years: Some(Year(0..=2010)),
+                ..Default::default()
+            });
         }
 
         #[test]
@@ -626,13 +643,10 @@ mod unit_tests {
                 ])
                 .unwrap();
             let filters = from_matches(&mut clap_matches);
-            assert_eq!(
-                filters,
-                Filters {
-                    years: Some(Year(1980..=2010)),
-                    ..Default::default()
-                }
-            );
+            assert_eq!(filters, Filters {
+                years: Some(Year(1980..=2010)),
+                ..Default::default()
+            });
         }
 
         #[test]
@@ -648,13 +662,10 @@ mod unit_tests {
                 ])
                 .unwrap();
             let filters = from_matches(&mut clap_matches);
-            assert_eq!(
-                filters,
-                Filters {
-                    types: MediaType::MOVIE,
-                    years: Some(Year(1980..=2010)),
-                }
-            );
+            assert_eq!(filters, Filters {
+                types: MediaType::MOVIE,
+                years: Some(Year(1980..=2010)),
+            });
         }
     }
 }

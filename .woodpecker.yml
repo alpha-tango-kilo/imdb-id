@@ -9,8 +9,7 @@ pipeline:
       - cargo test
       - cargo test --all-features
   lint:
-    image: rust:1.58
+    image: rustdocker/rustfmt_clippy:nightly
     commands:
-      - rustup component add rustfmt clippy
       - cargo fmt -- --check --files-with-diff
       - cargo clippy --no-deps
