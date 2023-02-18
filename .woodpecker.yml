@@ -9,12 +9,12 @@ pipeline:
       - cargo test --locked
       - cargo test --locked --all-features
   lint:
-    image: rust:1.58
+    image: rust
     commands:
       - rustup component add rustfmt clippy
       - cargo fmt -- --check --files-with-diff
       - cargo clippy --no-deps
   msrv:
-    image: rust:1.60
+    image: rust:1.64
     commands:
       - cargo build --locked
