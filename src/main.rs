@@ -5,22 +5,16 @@ pub mod omdb;
 mod persistent;
 mod user_input;
 
-use std::{
-    borrow::Cow,
-    cmp::min,
-    process,
-};
-
-use clap_wrap::OutputFormat::*;
 pub use clap_wrap::*;
 pub use errors::*;
 pub use filters::*;
-use omdb::{
-    test_api_key,
-    RequestBundle,
-    SearchResult,
-};
 pub use persistent::*;
+
+use clap_wrap::OutputFormat::*;
+use omdb::{test_api_key, RequestBundle, SearchResult};
+use std::borrow::Cow;
+use std::cmp::min;
+use std::process;
 use user_input::cli::get_api_key;
 
 fn main() {

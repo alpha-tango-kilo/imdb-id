@@ -1,11 +1,8 @@
-use std::{
-    borrow::Cow,
-    error::Error,
-    fmt::Display,
-    io,
-    num::ParseIntError,
-};
-
+use std::borrow::Cow;
+use std::error::Error;
+use std::fmt::Display;
+use std::io;
+use std::num::ParseIntError;
 use thiserror::Error;
 
 // To be implemented on types that contain some non-fatal errors and wish to
@@ -161,11 +158,7 @@ impl PartialEq for ArgsError {
 #[derive(Debug, Error)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub enum OutputFormatParseError {
-    #[error(
-        "this format isn't supported because you didn't enable it at compile \
-         time.\nYou can 'enable' this by running `cargo install imdb-id \
-         --force --features {0}`"
-    )]
+    #[error("this format isn't supported because you didn't enable it at compile time.\nYou can 'enable' this by running `cargo install imdb-id --force --features {0}`")]
     NotInstalled(String),
     #[error("{0:?} is not a recognised output format")]
     Unrecognised(String),
@@ -191,10 +184,7 @@ pub struct MediaTypeParseError(pub String);
 pub enum InteractivityError {
     #[error("user aborted operation")]
     Cancel,
-    #[error(
-        "unexpected CLI error: {0}\nIf you were just trying to stop running \
-         the program, please create an issue about this"
-    )]
+    #[error("unexpected CLI error: {0}\nIf you were just trying to stop running the program, please create an issue about this")]
     Dialoguer(io::Error),
     #[error("unexpected crossterm error: {0}")]
     Crossterm(io::Error),
@@ -222,10 +212,7 @@ impl InteractivityError {
 pub enum RequestError {
     #[error("issue with request: {0}")]
     Web(#[from] minreq::Error),
-    #[error(
-        "Failed to parse response from OMDb, please raise an issue including \
-         the following text:\nSerde error: {0}\nJSON: \n```json\n{1}\n```"
-    )]
+    #[error("Failed to parse response from OMDb, please raise an issue including the following text:\nSerde error: {0}\nJSON: \n```json\n{1}\n```")]
     Deserialisation(serde_json::Error, String),
     #[error("OMDb gave us an error: {0}")]
     Omdb(String),
@@ -289,7 +276,7 @@ pub enum DiskError {
     #[error("failed to read saved config: {0}")]
     Read(io::Error),
     #[error("failed to interpret saved config at {1}: {0}")]
-    Deserialise(#[source] serde_json::Error, Cow<'static, str>), /* path (converted lossy) */
+    Deserialise(#[source] serde_json::Error, Cow<'static, str>), // path (converted lossy)
     #[error("failed to save config: {0}")]
     Write(io::Error),
     #[error("failed to convert config to JSON for writing: {0}")]

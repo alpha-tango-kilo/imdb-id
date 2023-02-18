@@ -1,24 +1,11 @@
-use std::{
-    borrow::Cow,
-    fs::{
-        File,
-        OpenOptions,
-    },
-    io,
-    io::{
-        BufReader,
-        Write,
-    },
-    path::PathBuf,
-};
-
-use once_cell::sync::Lazy;
-use serde::{
-    Deserialize,
-    Serialize,
-};
-
 use crate::DiskError;
+use once_cell::sync::Lazy;
+use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
+use std::fs::{File, OpenOptions};
+use std::io;
+use std::io::{BufReader, Write};
+use std::path::PathBuf;
 
 static CONFIG_PATH: Lazy<PathBuf> = Lazy::new(|| {
     let mut config_path =

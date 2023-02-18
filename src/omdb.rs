@@ -1,42 +1,18 @@
-use std::{
-    borrow::Cow,
-    env,
-    fmt::{
-        self,
-        Debug,
-    },
-    str::FromStr,
-    thread,
-    time::Duration,
+use crate::{
+    ApiKeyError, Filters, MaybeFatal, MediaTypeParseError, RequestError, Year,
 };
-
 use bitflags::bitflags;
 use itertools::Itertools;
 use minreq::Request;
 use once_cell::sync::Lazy;
-use serde::{
-    de::{
-        DeserializeOwned,
-        Error,
-    },
-    Deserialize,
-    Deserializer,
-    Serialize,
-    Serializer,
-};
-use smallvec::{
-    smallvec,
-    SmallVec,
-};
-
-use crate::{
-    ApiKeyError,
-    Filters,
-    MaybeFatal,
-    MediaTypeParseError,
-    RequestError,
-    Year,
-};
+use serde::de::{DeserializeOwned, Error};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use smallvec::{smallvec, SmallVec};
+use std::borrow::Cow;
+use std::fmt::{self, Debug};
+use std::str::FromStr;
+use std::time::Duration;
+use std::{env, thread};
 
 const DEFAULT_MAX_REQUESTS_PER_SEARCH: usize = 10;
 
@@ -399,11 +375,11 @@ impl<'a> RequestBundle<'a> {
         let combinations = filters.combinations();
         if combinations > *MAX_REQUESTS_PER_SEARCH {
             eprintln!(
-                "WARNING: the combination of filters you've specified can't \
-                 be exhaustively covered in {} requests (it would take \
-                 {combinations} requests), so some results will be missed. \
-                 You can set the IMDB_ID_MAX_REQUESTS_PER_SEARCH environment \
-                 variable to change this number",
+                "WARNING: the combination of filters you've specified \
+            can't be exhaustively covered in {} requests (it would take \
+            {combinations} requests), so some results will be missed. You can \
+            set the IMDB_ID_MAX_REQUESTS_PER_SEARCH environment variable to \
+            change this number",
                 *MAX_REQUESTS_PER_SEARCH
             );
         }
