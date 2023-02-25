@@ -674,7 +674,7 @@ mod unit_tests {
         INPUTS
             .iter()
             .map(|json_str| {
-                serde_json::from_str(*json_str).expect("Failed to deserialise")
+                serde_json::from_str(json_str).expect("Failed to deserialise")
             })
             .collect()
     });
