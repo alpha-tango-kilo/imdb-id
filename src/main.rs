@@ -40,13 +40,15 @@ fn app() -> Result<(), FinalError> {
     };
 
     // Get API key into one place, regardless as to where it's provided
-    let api_key: Option<Cow<str>> = match (runtime_config.api_key, &disk_config)
-    {
-        // Prefer CLI arg
-        (Some(ref s), _) => Some(Cow::Owned(s.clone())),
-        (None, Some(OnDiskConfig { api_key })) => Some(Cow::Borrowed(api_key)),
-        (None, None) => None,
-    };
+    let api_key: Option<Cow<str>> =
+        match (&runtime_config.api_key, &disk_config) {
+            // Prefer CLI arg
+            (Some(s), _) => Some(Cow::Borrowed(s.as_str())),
+            (None, Some(OnDiskConfig { api_key })) => {
+                Some(Cow::Borrowed(api_key))
+            },
+            (None, None) => None,
+        };
 
     // Check/Get API key
     let api_key = match api_key {
@@ -62,16 +64,16 @@ fn app() -> Result<(), FinalError> {
     // API key should now always be a good one
 
     // Update/Save API key to disk if needed
-    match disk_config {
-        Some(ref cfg) if cfg.api_key != api_key => {
+    match &disk_config {
+        Some(cfg) if cfg.api_key != api_key => {
             let new_config = OnDiskConfig {
-                api_key: Cow::Borrowed(&api_key),
+                api_key: api_key.clone(),
             };
             new_config.save().emit_unconditional();
         },
         None => {
             let new_config = OnDiskConfig {
-                api_key: Cow::Borrowed(&api_key),
+                api_key: api_key.clone(),
             };
             new_config.save().emit_unconditional();
         },
