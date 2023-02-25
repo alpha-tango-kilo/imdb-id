@@ -438,6 +438,8 @@ impl<'a> RequestBundle<'a> {
         // get. Additional time added for each error message
         let mut reading_time = 0;
 
+        let mut no_results_err = None;
+
         for params in self.params.iter() {
             // Build request
             let request =
@@ -453,6 +455,9 @@ impl<'a> RequestBundle<'a> {
             // Send request
             match send_omdb_search(request) {
                 Ok(results) => result_sets.push(results.entries),
+                Err(missing) if matches!(&missing, RequestError::Omdb(msg) if msg.ends_with("not found!")) => {
+                    no_results_err = Some(missing)
+                },
                 Err(fatal) if fatal.is_fatal() => return Err(fatal),
                 Err(warn) => {
                     eprintln!("Problem with request ({params}): {warn}");
@@ -460,6 +465,12 @@ impl<'a> RequestBundle<'a> {
                 },
             }
         }
+
+        // Only throw no results error if all searches returned nothing
+        if result_sets.is_empty() {
+            return Err(no_results_err.unwrap());
+        }
+
         // Merge results
         let results = result_sets
             .into_iter()
