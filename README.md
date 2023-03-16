@@ -58,6 +58,9 @@ OPTIONS:
     -n, --non-interactive
             Disables interactive features (always picks the first result)
 
+    -u, --print-url
+            Print the full web url instead of just the id
+
     -r, --results <number_of_results>
             The maximum number of results to show from IMDb
 

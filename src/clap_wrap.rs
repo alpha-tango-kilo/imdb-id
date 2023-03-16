@@ -17,6 +17,7 @@ pub struct RuntimeConfig {
     pub filters: Filters,
     pub format: OutputFormat,
     pub api_key: Option<String>,
+    pub print_url: bool,
 }
 
 impl RuntimeConfig {
@@ -39,6 +40,13 @@ impl RuntimeConfig {
                     .help("Disables interactive features (always picks the first result)")
                     .requires("search_term")
                     .action(ArgAction::SetTrue),
+            )
+            .arg(
+                Arg::new("print-url")
+                .short('u')
+                .long("print-url")
+                .help("Print the full WebURL instead of just the ID")
+                .action(ArgAction::SetTrue),
             )
             .arg(
                 Arg::new("number_of_results")
@@ -167,6 +175,8 @@ impl RuntimeConfig {
                 },
             };
 
+        let print_url = clap_matches.get_flag("print-url");
+
         Ok(RuntimeConfig {
             search_term,
             interactive,
@@ -174,6 +184,7 @@ impl RuntimeConfig {
             filters,
             format,
             api_key,
+            print_url,
         })
     }
 }
@@ -187,6 +198,7 @@ impl Default for RuntimeConfig {
             filters: Filters::default(),
             format: OutputFormat::default(),
             api_key: None,
+            print_url: false,
         }
     }
 }

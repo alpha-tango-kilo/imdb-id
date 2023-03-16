@@ -17,6 +17,9 @@ use std::cmp::min;
 use std::process;
 use user_input::cli::get_api_key;
 
+// prefix to be used by print-url option
+const WEB_URL: &str = "https://www.imdb.com/title/";
+
 fn main() {
     if let Err(why) = app() {
         if why.is_fatal() {
@@ -101,6 +104,9 @@ fn app() -> Result<(), FinalError> {
                 if runtime_config.interactive {
                     eprintln!("Only one result; {search_result}");
                 }
+                if runtime_config.print_url {
+                    print!("{}", WEB_URL); // Not println! so there's no newline
+                }
                 println!("{}", search_result.imdb_id);
             } else {
                 // Guaranteed to be interactive
@@ -108,9 +114,17 @@ fn app() -> Result<(), FinalError> {
                 let end_index =
                     min(search_results.len(), runtime_config.number_of_results);
                 match user_input::tui(&api_key, &search_results[..end_index])? {
-                    Picked(sr) => println!("{}", sr.imdb_id),
+                    Picked(sr) => {
+                        if runtime_config.print_url {
+                            print!("{}", WEB_URL); // Not println! so there's no newline
+                        }
+                        println!("{}", sr.imdb_id);
+                    },
                     PickedError(sr, err) => {
                         eprintln!("{err}\n");
+                        if runtime_config.print_url {
+                            print!("{}", WEB_URL); // Not println! so there's no newline
+                        }
                         println!("{}", sr.imdb_id);
                     },
                     Quit => {},
