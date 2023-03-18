@@ -2,7 +2,7 @@
 name = "imdb-id"
 description = "Get IMDb IDs using a commandline search tool"
 categories = ["command-line-utilities"]
-version = "3.0.4"
+version = "3.0.5"
 edition = "2021"
 rust-version = "1.64"
 authors = ["alpha-tango-kilo <git@heyatk.com>"]

@@ -45,7 +45,7 @@ impl RuntimeConfig {
                 Arg::new("print-url")
                 .short('u')
                 .long("print-url")
-                .help("Print the full WebURL instead of just the ID")
+                .help("Print the full IMDb URL instead of just the ID")
                 .action(ArgAction::SetTrue),
             )
             .arg(
@@ -203,19 +203,14 @@ impl Default for RuntimeConfig {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Default)]
 #[cfg_attr(test, derive(Eq, PartialEq))]
 pub enum OutputFormat {
+    #[default]
     Human,
     Json,
     #[cfg(feature = "yaml")]
     Yaml,
-}
-
-impl Default for OutputFormat {
-    fn default() -> Self {
-        OutputFormat::Human
-    }
 }
 
 impl FromStr for OutputFormat {
