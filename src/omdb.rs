@@ -213,11 +213,12 @@ where
 // intentionally excluded as it always returns 0 results)
 // Serialize and Deserialize and implemented by hand
 bitflags! {
+    #[derive(Debug, Copy, Clone, Eq, PartialEq)]
     pub struct MediaType: u8 {
         const MOVIE = 0b0001;
         const SERIES = 0b0010;
         const GAME = 0b0100;
-        const ALL = Self::MOVIE.bits | Self::SERIES.bits | Self::GAME.bits;
+        const ALL = Self::MOVIE.bits() | Self::SERIES.bits() | Self::GAME.bits();
     }
 }
 
@@ -269,7 +270,7 @@ impl fmt::Display for MediaType {
             MediaType::MOVIE => write!(f, "movie"),
             MediaType::SERIES => write!(f, "series"),
             MediaType::GAME => write!(f, "game"),
-            _ if self.bits > 0 => {
+            _ if self.bits() > 0 => {
                 let mut buf = String::with_capacity(5);
                 if self.contains(MediaType::MOVIE) {
                     buf.push_str("movie")

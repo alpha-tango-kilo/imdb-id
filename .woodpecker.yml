@@ -15,6 +15,6 @@ pipeline:
       - cargo fmt -- --check --files-with-diff
       - cargo clippy --no-deps
   msrv:
-    image: rust:1.64
+    image: rust:1.70
     commands:
       - cargo build --locked

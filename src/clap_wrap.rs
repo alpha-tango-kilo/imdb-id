@@ -128,9 +128,9 @@ impl RuntimeConfig {
         let mut interactive = !clap_matches.get_flag("non-interactive");
         // TTY checks are disabled for testing
         if cfg!(not(test)) {
-            use crossterm::tty::IsTty;
-            interactive &= stdout().is_tty();
-            interactive &= stdin().is_tty();
+            use std::io::IsTerminal;
+            interactive &= stdout().is_terminal();
+            interactive &= stdin().is_terminal();
         }
 
         let number_of_results =

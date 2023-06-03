@@ -137,17 +137,17 @@ pub mod tui {
     use crossterm::{event, execute};
     use itertools::Itertools;
     use once_cell::sync::Lazy;
+    use ratatui::backend::CrosstermBackend;
+    use ratatui::layout::{Constraint, Direction, Layout};
+    use ratatui::style::{Modifier, Style};
+    use ratatui::text::{Line, Span};
+    use ratatui::widgets::{
+        Block, Borders, List, ListItem, ListState, Paragraph, Wrap,
+    };
+    use ratatui::Terminal;
     use std::fmt::Display;
     use std::io;
     use std::io::Stdout;
-    use tui::backend::CrosstermBackend;
-    use tui::layout::{Constraint, Direction, Layout};
-    use tui::style::{Modifier, Style};
-    use tui::text::{Span, Spans};
-    use tui::widgets::{
-        Block, Borders, List, ListItem, ListState, Paragraph, Wrap,
-    };
-    use tui::Terminal;
 
     const HIGHLIGHT_SYMBOL: &str = "> ";
     const MIN_MARGIN: usize = 1;
@@ -385,7 +385,7 @@ pub mod tui {
         } = entry;
         let mut information = Vec::with_capacity(6);
         // Line 1: title & year
-        information.push(Spans::from(vec![
+        information.push(Line::from(vec![
             Span::styled("Title: ", *BOLD),
             Span::raw(title),
             Span::styled(
@@ -397,7 +397,7 @@ pub mod tui {
         match (seasons, runtime) {
             (Some(seasons), Some(runtime)) => {
                 // e.g. Seasons: 6 (45 minutes per episode)
-                information.push(Spans::from(vec![
+                information.push(Line::from(vec![
                     Span::styled("Seasons: ", *BOLD),
                     Span::raw(seasons.to_string()),
                     Span::raw(" ("),
@@ -407,14 +407,14 @@ pub mod tui {
             },
             (Some(seasons), None) => {
                 // e.g. Seasons: 6
-                information.push(Spans::from(vec![
+                information.push(Line::from(vec![
                     Span::styled("Seasons: ", *BOLD),
                     Span::raw(seasons.to_string()),
                 ]));
             },
             (None, Some(runtime)) => {
                 // e.g. Run time: 120 minutes
-                information.push(Spans::from(vec![
+                information.push(Line::from(vec![
                     Span::styled("Run time: ", *BOLD),
                     Span::raw(runtime),
                 ]));
@@ -423,28 +423,28 @@ pub mod tui {
         }
         // Line 3: rating
         if let Some(rating) = rating {
-            information.push(Spans::from(vec![
+            information.push(Line::from(vec![
                 Span::styled("IMDb Rating: ", *BOLD),
                 Span::raw(rating.to_string()),
             ]));
         }
         // Line 4: genres
         if let Some(genres) = genres {
-            information.push(Spans::from(vec![
+            information.push(Line::from(vec![
                 Span::styled("Genre(s): ", *BOLD),
                 Span::raw(format_list(&genres)),
             ]));
         }
         // Line 5: actors
         if let Some(actors) = actors {
-            information.push(Spans::from(vec![
+            information.push(Line::from(vec![
                 Span::styled("Actor(s): ", *BOLD),
                 Span::raw(format_list(&actors)),
             ]));
         }
         // Line 6: plot
         if let Some(plot) = plot {
-            information.push(Spans::from(vec![
+            information.push(Line::from(vec![
                 Span::styled("Plot: ", *BOLD),
                 Span::raw(plot),
             ]));
@@ -461,14 +461,14 @@ pub mod tui {
 
     fn error_to_paragraph(error: &RequestError) -> Paragraph<'static> {
         let mut text = vec![
-            Spans::from(Span::styled("Failed to load entry", *BOLD)),
-            Spans::from(Span::styled("This error will be printed for easier copying if you choose it", *BOLD)),
+            Line::from(Span::styled("Failed to load entry", *BOLD)),
+            Line::from(Span::styled("This error will be printed for easier copying if you choose it", *BOLD)),
         ];
 
         // Interpret newlines by putting each line in its own Spans
         // Makes RequestError::Deserialisation present far more nicely
         for line in error.to_string().lines() {
-            text.push(Spans::from(line.to_owned()));
+            text.push(Line::from(line.to_owned()));
         }
 
         Paragraph::new(text)
