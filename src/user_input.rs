@@ -1,10 +1,8 @@
 pub use self::tui::tui;
 use crate::InteractivityError;
 
-type Result<T, E = InteractivityError> = std::result::Result<T, E>;
-
 pub mod cli {
-    use super::{InteractivityError, Result};
+    use super::InteractivityError;
     use crate::omdb::{test_api_key, MediaType};
     use crate::{FinalError, MaybeFatal, SignUpError};
     use dialoguer::theme::ColorfulTheme;
@@ -33,7 +31,7 @@ pub mod cli {
             .with_prompt("Do you have an OMDb API key?")
             .default(false)
             .interact()
-            .map_err(InteractivityError::from_cli)?;
+            .map_err(InteractivityError::from)?;
 
         if !has_key {
             use InteractivityError::Cancel;
@@ -58,7 +56,7 @@ pub mod cli {
             let api_key = Input::<String>::with_theme(THEME.deref())
                 .with_prompt("Please enter your API key")
                 .interact_text()
-                .map_err(InteractivityError::from_cli)?;
+                .map_err(InteractivityError::from)?;
             match test_api_key(&api_key) {
                 Ok(()) => return Ok(api_key),
                 Err(fatal) if fatal.is_fatal() => return Err(fatal.into()),
@@ -81,18 +79,18 @@ pub mod cli {
                 }
             })
             .interact_text()
-            .map_err(InteractivityError::from_cli)?
+            .map_err(InteractivityError::from)?
             .to_lowercase();
         let first_name = Input::<String>::with_theme(THEME.deref())
             .with_prompt("Please input your first name (OMDb requests this)")
             .default(String::from("Joe"))
             .interact_text()
-            .map_err(InteractivityError::from_cli)?;
+            .map_err(InteractivityError::from)?;
         let last_name = Input::<String>::with_theme(THEME.deref())
             .with_prompt("Please input your last name (OMDb requests this)")
             .default(String::from("Bloggs"))
             .interact_text()
-            .map_err(InteractivityError::from_cli)?;
+            .map_err(InteractivityError::from)?;
         let r#use = "Searching the API with imdb-id (https://codeberg.org/alpha-tango-kilo/imdb-id)";
 
         let request = get(format!(
@@ -114,13 +112,14 @@ pub mod cli {
         }
     }
 
-    pub fn get_search_term(types: MediaType) -> Result<String> {
+    pub fn get_search_term(
+        types: MediaType,
+    ) -> Result<String, InteractivityError> {
         let question = Input::with_theme(THEME.deref())
             .with_prompt(format!(
                 "Please enter the name of the {types} you're looking for"
             ))
-            .interact_text()
-            .map_err(InteractivityError::from_cli)?;
+            .interact_text()?;
         Ok(question)
     }
 }

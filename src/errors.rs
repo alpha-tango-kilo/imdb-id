@@ -185,7 +185,7 @@ pub enum InteractivityError {
     #[error("user aborted operation")]
     Cancel,
     #[error("unexpected CLI error: {0}\nIf you were just trying to stop running the program, please create an issue about this")]
-    Dialoguer(io::Error),
+    Dialoguer(dialoguer::Error),
     #[error("unexpected crossterm error: {0}")]
     Crossterm(io::Error),
     #[error("unexpected TUI error: {0}")]
@@ -198,11 +198,15 @@ impl MaybeFatal for InteractivityError {
     }
 }
 
-impl InteractivityError {
-    pub fn from_cli(err: io::Error) -> Self {
+impl From<dialoguer::Error> for InteractivityError {
+    fn from(err: dialoguer::Error) -> Self {
         use InteractivityError::*;
-        match err.kind() {
-            io::ErrorKind::NotConnected => Cancel,
+        match err {
+            dialoguer::Error::IO(io_err)
+                if io_err.kind() == io::ErrorKind::NotConnected =>
+            {
+                Cancel
+            },
             _ => Dialoguer(err),
         }
     }
