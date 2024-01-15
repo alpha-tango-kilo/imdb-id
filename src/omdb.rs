@@ -498,7 +498,6 @@ impl<'a> RequestBundle<'a> {
 pub fn test_api_key(api_key: &str) -> Result<(), ApiKeyError> {
     use ApiKeyError::*;
 
-    // Check that API key is 8 hexademical characters
     if !api_key_format_acceptable(api_key) {
         return Err(InvalidFormat);
     }
@@ -517,8 +516,9 @@ pub fn test_api_key(api_key: &str) -> Result<(), ApiKeyError> {
     }
 }
 
+/// Check that API key is hexademical characters
 fn api_key_format_acceptable(api_key: &str) -> bool {
-    api_key.len() == 8 && api_key.chars().all(|c| c.is_ascii_hexdigit())
+    api_key.chars().all(|c| c.is_ascii_hexdigit())
 }
 
 pub fn get_entry(api_key: &str, imdb_id: &str) -> Result<Entry, RequestError> {
@@ -585,9 +585,8 @@ mod unit_tests {
         assert!(!api_key_format_acceptable("foo"));
         assert!(!api_key_format_acceptable("foobarbaz"));
 
-        assert!(!api_key_format_acceptable("123f3"));
-        assert!(!api_key_format_acceptable("435adf312b"));
-
+        assert!(api_key_format_acceptable("123f3"));
+        assert!(api_key_format_acceptable("435adf312b"));
         assert!(api_key_format_acceptable("13495632"));
         assert!(api_key_format_acceptable("3a3d4e1f"));
     }
